@@ -92,10 +92,9 @@ Para evitar el uso de planes en la nube de Supabase, levantamos una instancia de
 *   **Docker Compose:** Definimos `/srv/wonsfo/docker-compose.yml` para levantar la aplicación en el puerto `3000` de forma persistente (`restart: always`), mapeando el archivo `.env.local` con las credenciales de base de datos local, OpenRouter y Cloudinary.
 *   **Estado:** El contenedor `wonsfo-web` se encuentra activo y respondiendo exitosamente (retorna HTTP 200).
 
-### C. Proxy Nginx (Host)
+### C. Proxy Nginx & Let's Encrypt (Host)
 *   Creamos el archivo `/srv/nginx/conf.d/wonsfo.conf` para dirigir el tráfico de los dominios `wonsfo.com` y `www.wonsfo.com` hacia el puerto `3000` de la aplicación.
-*   **Siguiente paso (SSL):** Una vez que los DNS de `wonsfo.com` apunten a la IP pública del servidor VPS (`146.181.52.67`), puedes obtener y habilitar los certificados HTTPS de Let's Encrypt ejecutando en la consola de la VPS:
-    ```bash
-    sudo certbot --nginx -d wonsfo.com -d www.wonsfo.com
-    ```
+*   **Certificado SSL Activo:** Como los DNS ya propagaron a la IP del VPS, ejecutamos con éxito Certbot para obtener y habilitar los certificados HTTPS de Let's Encrypt, forzando la redirección de todo el tráfico HTTP a HTTPS de forma automática.
+*   **Estado HTTPS:** Activo y respondiendo de forma segura en **`https://wonsfo.com`** y **`https://www.wonsfo.com`**.
+
 

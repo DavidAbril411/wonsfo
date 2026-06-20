@@ -1,0 +1,39 @@
+name: Next.js CI/CD Build Check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-size: 20
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run TypeScript type-checking
+      run: npx tsc --noEmit
+
+    - name: Run Unit Tests
+      run: npx tsx test_engines.ts
+
+    - name: Build Next.js application
+      run: npm run build
+      env:
+        # Pasa variables dummy para evitar errores de compilación estática si son validadas en build-time.
+        NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+        SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+        OPENROUTER_API_KEY: placeholder-openrouter-key

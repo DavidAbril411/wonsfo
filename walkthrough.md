@@ -97,4 +97,34 @@ Para evitar el uso de planes en la nube de Supabase, levantamos una instancia de
 *   **Certificado SSL Activo:** Como los DNS ya propagaron a la IP del VPS, ejecutamos con éxito Certbot para obtener y habilitar los certificados HTTPS de Let's Encrypt, forzando la redirección de todo el tráfico HTTP a HTTPS de forma automática.
 *   **Estado HTTPS:** Activo y respondiendo de forma segura en **`https://wonsfo.com`** y **`https://www.wonsfo.com`**.
 
+---
+
+## 5. Verificación de Email e Integración de Código de Confirmación (OTP)
+
+Para evitar registros masivos de cuentas ficticias, implementamos y validamos la verificación de correo electrónico:
+
+### A. Proveedor SMTP (Resend)
+*   Se configuró el dominio `wonsfo.com` en Resend añadiendo los registros DNS TXT (SPF/DKIM).
+*   Se actualizaron las credenciales SMTP en el `.env` de Supabase en la VPS (`GOTRUE_SMTP_HOST=smtp.resend.com`, `GOTRUE_MAILER_AUTOCONFIRM=false`, etc.) y se recreó el contenedor `supabase-auth`.
+
+### B. Enrutamiento en Nginx (Solución al Error 404 del Enlace)
+*   **Problema:** GoTrue genera enlaces con la estructura `/auth/v1/verify?token=...`. Al no existir esta ruta en Next.js, Nginx redirigía el tráfico al frontend, arrojando un 404.
+*   **Solución:** Modificamos `/srv/nginx/conf.d/wonsfo.conf` en la VPS para interceptar las rutas `/auth/` y mandarlas directamente al Gateway de Supabase (puerto 8000):
+    ```nginx
+    location ~ ^/auth/(.*)$ {
+        include /srv/nginx/snippets/proxy-common.conf;
+        proxy_pass http://127.0.0.1:8000/auth/$1$is_args$args;
+    }
+    ```
+*   **Resultado:** Los clics en los enlaces de verificación del email se validan correctamente por Supabase y redirigen automáticamente de vuelta al usuario autenticado.
+
+### C. Entrada Directa del Código de Confirmación (OTP) en el Frontend
+*   **Mejora:** Modificamos `src/app/login/page.tsx` para agregar una pantalla dedicada a ingresar el **código de 6 dígitos** (OTP) recibido en el email.
+*   **Flujo:**
+    1.  Al registrarse, el usuario es guiado automáticamente a la pantalla de verificación OTP.
+    2.  Si el usuario ya se había registrado pero no completó la verificación, puede hacer clic en *"Ingresa tu código de 6 dígitos aquí"* desde la pantalla de login.
+    3.  El usuario puede volver a solicitar el reenvío del código haciendo clic en *"Reenviar código"*.
+    4.  Una vez ingresado el código correcto, el sistema autentica la cuenta mediante `supabase.auth.verifyOtp` y redirige al dashboard.
+
+
 

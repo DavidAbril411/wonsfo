@@ -156,14 +156,31 @@ export async function POST(request: NextRequest) {
     // RAG (Memoria de Largo Plazo): En producción se realizaría una búsqueda de pgvector aquí.
     // Para simplificar el MVP, confiamos en la ventana deslizante del historial.
 
-    // 9. Prompt Engineering e Inyección de Directivas Dialectales
+    // 9. Prompt Engineering e Inyección de Directivas Dialectales y de Ritmo (Clímax)
+    let climaxDirective = '';
+    if (climaxSpeed === 'Slow') {
+      climaxDirective = 
+        `\n[RITMO NARRATIVO: LENTO Y JUEGO PREVIO PROLONGADO (SLOW BURN). Reglas estrictas de ritmo:\n` +
+        `- EL AGENTE NUNCA TOMA LA INICIATIVA DE INSINUACIÓN: Tienes prohibido iniciar insinuaciones románticas, afectivas, íntimas o físicas. Las insinuaciones deben originarse 100% del usuario.\n` +
+        `- RESISTENCIA Y LÍMITES: Cuando el usuario se insinúe, NO cedas de inmediato. Las primeras veces debes resistirte activamente, poner límites racionales (recordando por ejemplo que sos su madrastra, las normas sociales, o tu esposo), mostrar timidez, confusión o desviar el tema de forma reservada.\n` +
+        `- AVANCE ULTRA-GRADUAL: Solo permite mayor cercanía o cede ante la insistencia si el usuario insiste repetida y progresivamente a lo largo de muchos mensajes. Mantén la distancia y el control emocional en todo momento.]`;
+    } else if (climaxSpeed === 'Fast') {
+      climaxDirective = 
+        `\n[RITMO NARRATIVO: RÁPIDO (FAST PACED). Sé sumamente directo, coqueto y avanza rápidamente hacia la tensión íntima o escenas explícitas. ` +
+        `Responde a las insinuaciones del usuario acelerando la cercanía física y emocional de inmediato.]`;
+    } else {
+      climaxDirective = 
+        `\n[RITMO NARRATIVO: ESTÁNDAR. Desarrolla la tensión de forma balanceada y natural a lo largo de la conversación.]`;
+    }
+
     let systemPrompt = 
       `Eres ${character.name}. Mantén estrictamente tu personaje en todo momento, respondiendo en primera persona.\n` +
       `Personalidad e Historia:\n${character.personality_description}\n\n` +
       `Instrucciones de estilo de escritura:\n` +
       `- Mantén descripciones literarias vívidas y ricas. Usa cursivas *para acciones y gestos* y comillas "para diálogos".\n` +
       `- Tu tono debe ser inmersivo, sugestivo y adaptado al rol.\n` +
-      `- Escribe exclusivamente en Español.`;
+      `- Escribe exclusivamente en Español.` +
+      climaxDirective;
 
     // Si es premium, inyectamos la directiva dialectal al prompt del sistema del LLM principal
     if (isPremium && country !== 'Neutro') {

@@ -151,8 +151,8 @@ export async function POST(request: NextRequest) {
     const englishSkin = TRANSLATE_SKIN[skin] || 'smooth skin';
     const englishPersonality = TRANSLATE_PERSONALITY[personality] || 'attractive look';
 
-    // Prompt de imagen estructurado y seductor para retratos
-    const imagePrompt = `sensual raw photography portrait of a beautiful ${age} years old woman, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+    // Prompt de imagen estructurado y seductor (plano de rodillas hacia arriba)
+    const imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old woman standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
     const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=512&height=512&nologo=true&safe=false&model=flux-realism&seed=${Math.floor(Math.random() * 100000)}`;

@@ -34,16 +34,22 @@ const BUILDS_MALE = ['Delgada', 'Atlética', 'Musculosa', 'Rellenita'];
 const EYE_COLORS = ['Azules', 'Verdes', 'Avellana', 'Oscuros'];
 
 const HAIR_STYLES = [
-  'Rubio largo', 
+  'Rubio', 
   'Castaño ondulado', 
-  'Pelirrojo corto', 
+  'Pelirrojo', 
   'Negro lacio', 
-  'Cabello de fantasía (Rosa)', 
-  'Cabello de fantasía (Plateado)', 
-  'Cabello de fantasía (Azul)'
+  'Cabello rosa', 
+  'Cabello plateado', 
+  'Cabello azul'
 ];
 
 const SKIN_TONES = ['Clara', 'Bronceada', 'Trigueña', 'Oscura'];
+
+const HAIR_LENGTHS = ['Corto', 'Mediano', 'Largo', 'Muy largo'];
+const BREAST_SIZES = ['Sin senos (Plano)', 'Pequeños', 'Medianos', 'Grandes', 'Muy grandes'];
+const WAIST_BUTT_SHAPES = ['Estándar', 'Cintura fina y culo estándar', 'Cintura fina y culo grande', 'Reloj de arena pronunciado', 'Caderas anchas'];
+const MUSCLE_AMOUNTS = ['Normal / Sin entrenar', 'Definido / Atlético', 'Musculoso / Culturista', 'Fuerte / Voluminoso'];
+const BEARD_STYLES = ['Afeitado / Sin barba', 'Barba de 3 días', 'Barba tupida', 'Perilla / Candado'];
 
 const ETHNICITIES = [
   { value: 'Caucásica', label: 'Caucásica / Blanca' },
@@ -111,6 +117,12 @@ export default function CreateAgentPage() {
   const [contextDetails, setContextDetails] = useState('');
   const [dialect, setDialect] = useState('Neutro');
   const [climaxSpeed, setClimaxSpeed] = useState('Slow');
+  
+  const [hairLength, setHairLength] = useState('Largo');
+  const [breastSize, setBreastSize] = useState('Medianos');
+  const [waistButt, setWaistButt] = useState('Estándar');
+  const [muscleAmount, setMuscleAmount] = useState('Normal / Sin entrenar');
+  const [beardStyle, setBeardStyle] = useState('Afeitado / Sin barba');
   
   // Saludo manual o automático
   const [greetingChoice, setGreetingChoice] = useState<'generate' | 'manual'>('generate');
@@ -197,7 +209,12 @@ export default function CreateAgentPage() {
           relationship,
           contextDetails: contextDetails.trim(),
           greetingChoice,
-          manualGreeting: manualGreeting.trim()
+          manualGreeting: manualGreeting.trim(),
+          hairLength,
+          breastSize,
+          waistButt,
+          muscleAmount,
+          beardStyle
         })
       });
 
@@ -579,6 +596,120 @@ export default function CreateAgentPage() {
                 </div>
               </div>
             </div>
+
+            {/* Largo de Cabello */}
+            <div className="space-y-2">
+              <span className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Largo de Cabello</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {HAIR_LENGTHS.map((hl) => (
+                  <button
+                    key={hl}
+                    type="button"
+                    onClick={() => setHairLength(hl)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-semibold text-center transition-all cursor-pointer ${
+                      hairLength === hl 
+                        ? 'border-pink-500 bg-pink-950/15 text-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.08)]' 
+                        : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:border-zinc-700'
+                    }`}
+                  >
+                    {hl}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Opciones condicionales por género */}
+            {(gender === 'Mujer' || gender === 'Trans') && (
+              <>
+                {/* Tamaño de Senos */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Tamaño de Senos</span>
+                  <div className="flex flex-wrap gap-2">
+                    {BREAST_SIZES.map((bs) => (
+                      <button
+                        key={bs}
+                        type="button"
+                        onClick={() => setBreastSize(bs)}
+                        className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          breastSize === bs 
+                            ? 'border-pink-500 bg-pink-950/15 text-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.08)]' 
+                            : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        {bs}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Cintura / Culo */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Silueta / Cintura y Caderas</span>
+                  <div className="flex flex-wrap gap-2">
+                    {WAIST_BUTT_SHAPES.map((wb) => (
+                      <button
+                        key={wb}
+                        type="button"
+                        onClick={() => setWaistButt(wb)}
+                        className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          waistButt === wb 
+                            ? 'border-pink-500 bg-pink-950/15 text-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.08)]' 
+                            : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        {wb}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {gender === 'Hombre' && (
+              <>
+                {/* Nivel de Musculatura */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Nivel de Musculatura</span>
+                  <div className="flex flex-wrap gap-2">
+                    {MUSCLE_AMOUNTS.map((ma) => (
+                      <button
+                        key={ma}
+                        type="button"
+                        onClick={() => setMuscleAmount(ma)}
+                        className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          muscleAmount === ma 
+                            ? 'border-pink-500 bg-pink-950/15 text-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.08)]' 
+                            : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        {ma}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Estilo de Barba */}
+                <div className="space-y-2">
+                  <span className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Vello Facial / Barba</span>
+                  <div className="flex flex-wrap gap-2">
+                    {BEARD_STYLES.map((bs) => (
+                      <button
+                        key={bs}
+                        type="button"
+                        onClick={() => setBeardStyle(bs)}
+                        className={`px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all cursor-pointer ${
+                          beardStyle === bs 
+                            ? 'border-pink-500 bg-pink-950/15 text-pink-400 shadow-[0_0_8px_rgba(236,72,153,0.08)]' 
+                            : 'border-zinc-850 bg-zinc-900/30 text-zinc-400 hover:border-zinc-700'
+                        }`}
+                      >
+                        {bs}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -766,7 +897,7 @@ export default function CreateAgentPage() {
                   Ojos: <span className="font-semibold text-zinc-200 ml-1">{eyes}</span>
                 </span>
                 <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
-                  Cabello: <span className="font-semibold text-zinc-200 ml-1">{hair}</span>
+                  Cabello: <span className="font-semibold text-zinc-200 ml-1">{hair} ({hairLength})</span>
                 </span>
                 <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
                   Piel: <span className="font-semibold text-zinc-200 ml-1">{skin}</span>
@@ -774,6 +905,26 @@ export default function CreateAgentPage() {
                 <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
                   Etnia: <span className="font-semibold text-zinc-200 ml-1">{ethnicity}</span>
                 </span>
+                {(gender === 'Mujer' || gender === 'Trans') && (
+                  <>
+                    <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
+                      Senos: <span className="font-semibold text-zinc-200 ml-1">{breastSize}</span>
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
+                      Cintura/Hips: <span className="font-semibold text-zinc-200 ml-1">{waistButt}</span>
+                    </span>
+                  </>
+                )}
+                {gender === 'Hombre' && (
+                  <>
+                    <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
+                      Músculos: <span className="font-semibold text-zinc-200 ml-1">{muscleAmount}</span>
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
+                      Barba: <span className="font-semibold text-zinc-200 ml-1">{beardStyle}</span>
+                    </span>
+                  </>
+                )}
                 <span className="inline-flex items-center rounded-full bg-zinc-900 border border-zinc-850 px-3 py-1 text-xs text-zinc-350">
                   Acento: <span className="font-semibold text-zinc-200 ml-1">{dialect}</span>
                 </span>

@@ -35,13 +35,50 @@ const TRANSLATE_EYES: Record<string, string> = {
 };
 
 const TRANSLATE_HAIR: Record<string, string> = {
-  'Rubio largo': 'long straight blonde hair',
-  'Castaño ondulado': 'wavy shoulder-length brunette hair',
-  'Pelirrojo corto': 'short cropped red hair',
-  'Negro lacio': 'long silky straight black hair',
-  'Cabello de fantasía (Rosa)': 'vibrant pink fantasy hair',
-  'Cabello de fantasía (Plateado)': 'shiny silver fantasy hair',
-  'Cabello de fantasía (Azul)': 'neon blue fantasy hair'
+  'Rubio': 'straight blonde hair',
+  'Castaño ondulado': 'wavy brunette hair',
+  'Pelirrojo': 'red hair',
+  'Negro lacio': 'silky straight black hair',
+  'Cabello rosa': 'vibrant pink fantasy hair',
+  'Cabello plateado': 'shiny silver fantasy hair',
+  'Cabello azul': 'neon blue fantasy hair'
+};
+
+const TRANSLATE_HAIR_LENGTH: Record<string, string> = {
+  'Corto': 'short',
+  'Mediano': 'shoulder-length',
+  'Largo': 'long',
+  'Muy largo': 'very long'
+};
+
+const TRANSLATE_BREAST_SIZE: Record<string, string> = {
+  'Sin senos (Plano)': 'flat chest',
+  'Pequeños': 'small breasts',
+  'Medianos': 'medium breasts',
+  'Grandes': 'large breasts',
+  'Muy grandes': 'very large breasts'
+};
+
+const TRANSLATE_WAIST_BUTT: Record<string, string> = {
+  'Estándar': 'balanced hips',
+  'Cintura fina y culo estándar': 'slim waist and standard hips',
+  'Cintura fina y culo grande': 'slim waist and wide voluptuous hips',
+  'Reloj de arena pronunciado': 'pronounced voluptuous hourglass body shape',
+  'Caderas anchas': 'wide hips'
+};
+
+const TRANSLATE_MUSCLE_AMOUNT: Record<string, string> = {
+  'Normal / Sin entrenar': 'average physique',
+  'Definido / Atlético': 'defined athletic body',
+  'Musculoso / Culturista': 'muscular body builder physique',
+  'Fuerte / Voluminoso': 'strong thick powerlifter build'
+};
+
+const TRANSLATE_BEARD_STYLE: Record<string, string> = {
+  'Afeitado / Sin barba': 'clean-shaven',
+  'Barba de 3 días': 'stubble beard',
+  'Barba tupida': 'thick full beard',
+  'Perilla / Candado': 'goatee beard'
 };
 
 const TRANSLATE_SKIN: Record<string, string> = {
@@ -91,7 +128,12 @@ export async function POST(request: NextRequest) {
       relationship,
       contextDetails,
       greetingChoice,
-      manualGreeting
+      manualGreeting,
+      hairLength,
+      breastSize,
+      waistButt,
+      muscleAmount,
+      beardStyle
     } = await request.json();
 
     if (!name || !age || !build || !eyes || !hair || !skin || !personality || !dialect || !gender || !artStyle || !ethnicity || !relationship) {
@@ -140,9 +182,11 @@ export async function POST(request: NextRequest) {
       `- Edad: ${age} años\n` +
       `- Contextura: ${build}\n` +
       `- Ojos: ${eyes}\n` +
-      `- Cabello: ${hair}\n` +
+      `- Cabello: ${hair} (${hairLength || 'Largo'})\n` +
       `- Piel: ${skin}\n` +
       `- Etnia: ${ethnicity}\n` +
+      (gender !== 'Hombre' ? `- Senos: ${breastSize || 'Medianos'}\n- Silueta: ${waistButt || 'Estándar'}\n` : '') +
+      (gender === 'Hombre' ? `- Musculatura: ${muscleAmount || 'Normal'}\n- Barba: ${beardStyle || 'Sin barba'}\n` : '') +
       `- Personalidad dominante: ${personality}\n` +
       `- Relación con el usuario: ${relationship}\n` +
       `- Escenario y Profesión (Contexto): ${contextDetails || 'Ninguno especificado.'}\n` +
@@ -199,13 +243,26 @@ export async function POST(request: NextRequest) {
     const englishPersonality = TRANSLATE_PERSONALITY[personality] || 'attractive look';
     const englishGender = TRANSLATE_GENDER[gender] || 'person';
 
+    const englishHairLength = TRANSLATE_HAIR_LENGTH[hairLength] || 'long';
+    
+    let physicalDetailsEn = '';
+    if (gender === 'Hombre') {
+      const muscle = TRANSLATE_MUSCLE_AMOUNT[muscleAmount] || 'average physique';
+      const beard = TRANSLATE_BEARD_STYLE[beardStyle] || 'clean-shaven';
+      physicalDetailsEn = `${muscle}, ${beard}`;
+    } else {
+      const breasts = TRANSLATE_BREAST_SIZE[breastSize] || 'medium breasts';
+      const waist = TRANSLATE_WAIST_BUTT[waistButt] || 'balanced body shape';
+      physicalDetailsEn = `${breasts}, ${waist}`;
+    }
+
     let imagePrompt = '';
     if (artStyle === 'Anime') {
       // Prompt optimizado para estilo anime
-      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, key visual, black background`;
+      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, key visual, black background`;
     } else {
       // Prompt optimizado para fotografía real fotorrealista (rodillas hacia arriba)
-      imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+      imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;

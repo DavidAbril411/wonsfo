@@ -24,6 +24,7 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedText, setStreamedText] = useState('');
   const [premiumModels, setPremiumModels] = useState('thedrummer/cydonia-24b-v4.1');
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -257,7 +258,9 @@ export default function ChatPage() {
           <img
             src={character.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop'}
             alt={character.name}
-            className="h-9 w-9 rounded-lg object-cover border border-zinc-800"
+            onClick={() => setShowImageModal(true)}
+            className="h-9 w-9 rounded-lg object-cover border border-zinc-800 cursor-pointer hover:border-pink-500/50 transition-all duration-200"
+            title="Ver imagen en grande"
           />
           <div>
             <h2 className="text-sm font-semibold text-zinc-50 leading-tight">{character.name}</h2>
@@ -391,6 +394,38 @@ export default function ChatPage() {
           )}
         </div>
       </div>
+
+      {/* Modal para ver la imagen en grande */}
+      {showImageModal && character && (
+        <div 
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300 animate-fadeIn"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div 
+            className="relative max-w-md w-full flex flex-col items-center p-4 bg-zinc-950/70 border border-zinc-850/60 rounded-3xl shadow-[0_0_50px_rgba(236,72,153,0.15)]"
+            onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer click dentro
+          >
+            {/* Botón de cerrar */}
+            <button 
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-50 font-bold bg-zinc-900/80 border border-zinc-800 rounded-full h-8 w-8 flex items-center justify-center cursor-pointer transition-colors"
+              onClick={() => setShowImageModal(false)}
+            >
+              ✕
+            </button>
+            <img
+              src={character.avatar_url}
+              alt={character.name}
+              className="max-h-[60vh] max-w-full rounded-2xl object-contain border border-zinc-850"
+            />
+            <div className="mt-4 text-center">
+              <h3 className="text-lg font-black text-zinc-50">{character.name}</h3>
+              <p className="text-xs text-zinc-400 mt-1.5 px-2 leading-relaxed">
+                {character.personality_description}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

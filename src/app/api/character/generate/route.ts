@@ -19,10 +19,12 @@ if (isCloudinaryConfigured) {
 
 // Diccionarios de traducción de atributos para el Prompt de Imagen en Inglés
 const TRANSLATE_BUILD: Record<string, string> = {
-  'Delgada': 'slender slim body',
-  'Atlética': 'athletic toned body',
-  'Reloj de arena': 'voluptuous hourglass body',
-  'Curvy': 'curvy plump body'
+  'Delgada': 'slender slim build',
+  'Atlética': 'athletic toned build',
+  'Reloj de arena': 'voluptuous hourglass shape',
+  'Curvy': 'curvy build',
+  'Musculosa': 'muscular fit build',
+  'Rellenita': 'chubby soft build'
 };
 
 const TRANSLATE_EYES: Record<string, string> = {
@@ -37,28 +39,62 @@ const TRANSLATE_HAIR: Record<string, string> = {
   'Castaño ondulado': 'wavy shoulder-length brunette hair',
   'Pelirrojo corto': 'short cropped red hair',
   'Negro lacio': 'long silky straight black hair',
-  'Cabello de fantasía': 'vibrant pink and purple fantasy hair'
+  'Cabello de fantasía (Rosa)': 'vibrant pink fantasy hair',
+  'Cabello de fantasía (Plateado)': 'shiny silver fantasy hair',
+  'Cabello de fantasía (Azul)': 'neon blue fantasy hair'
 };
 
 const TRANSLATE_SKIN: Record<string, string> = {
-  'Clara': 'pale fair alabaster skin',
+  'Clara': 'pale fair skin',
   'Bronceada': 'tanned sun-kissed skin',
   'Trigueña': 'warm olive skin tone',
-  'Oscura': 'dark black skin tone'
+  'Oscura': 'dark skin tone'
+};
+
+const TRANSLATE_ETHNICITY: Record<string, string> = {
+  'Caucásica': 'caucasian white',
+  'Latina': 'latina',
+  'Asiática': 'asian',
+  'Africana': 'african black',
+  'Árabe': 'middle-eastern arabic',
+  'Mixta': 'mixed ethnicity'
 };
 
 const TRANSLATE_PERSONALITY: Record<string, string> = {
-  'Seductora': 'seductive smirk, playful heavy-lidded gaze, coquette expression',
-  'Sumisa': 'gentle warm smile, sweet submissive expression, shy soft gaze',
-  'Fría': 'cold dominant expression, serious bossy gaze, strict confident look',
-  'Rebelde': 'wild rebellious smirk, disheveled look, confident fierce expression'
+  'Seductora': 'seductive smirk, playful heavy-lidded gaze',
+  'Sumisa': 'gentle warm smile, sweet soft gaze',
+  'Fría': 'cold expression, serious confident look',
+  'Rebelde': 'wild rebellious smirk, confident fierce expression'
+};
+
+const TRANSLATE_GENDER: Record<string, string> = {
+  'Mujer': 'woman',
+  'Hombre': 'man',
+  'Trans': 'transgender woman'
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, age, build, eyes, hair, skin, personality, dialect, climaxSpeed } = await request.json();
+    const { 
+      name, 
+      age, 
+      build, 
+      eyes, 
+      hair, 
+      skin, 
+      personality, 
+      dialect, 
+      climaxSpeed,
+      gender,
+      artStyle,
+      ethnicity,
+      relationship,
+      contextDetails,
+      greetingChoice,
+      manualGreeting
+    } = await request.json();
 
-    if (!name || !age || !build || !eyes || !hair || !skin || !personality || !dialect) {
+    if (!name || !age || !build || !eyes || !hair || !skin || !personality || !dialect || !gender || !artStyle || !ethnicity || !relationship) {
       return NextResponse.json({ error: 'Faltan atributos obligatorios para la creación del personaje.' }, { status: 400 });
     }
 
@@ -94,21 +130,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Falta la API Key de OpenRouter en el servidor.' }, { status: 500 });
     }
 
+    const shouldGenerateGreeting = greetingChoice === 'generate';
+
     const promptTextGen = 
       `Eres un redactor creativo experto en juegos de rol interactivos para adultos. \n` +
       `Genera una ficha técnica para un personaje en español con las siguientes características:\n` +
       `- Nombre: ${name}\n` +
+      `- Género: ${gender}\n` +
       `- Edad: ${age} años\n` +
       `- Contextura: ${build}\n` +
       `- Ojos: ${eyes}\n` +
       `- Cabello: ${hair}\n` +
       `- Piel: ${skin}\n` +
+      `- Etnia: ${ethnicity}\n` +
       `- Personalidad dominante: ${personality}\n` +
+      `- Relación con el usuario: ${relationship}\n` +
+      `- Escenario y Profesión (Contexto): ${contextDetails || 'Ninguno especificado.'}\n` +
       `- Dialecto: ${dialect}\n\n` +
-      `Debes retornar ÚNICAMENTE un objeto JSON con dos propiedades:\n` +
-      `1. "description": Una descripción de su personalidad y trasfondo de 2 a 3 frases en español, escrita de manera inmersiva e incitante.\n` +
-      `2. "greeting": Un mensaje inicial o saludo en primera persona en español, altamente sugestivo, inmersivo, y acorde a su dialecto, que incluya acciones entre asteriscos (ej. *te miro de arriba a abajo y sonrío*).\n\n` +
-      `Responde estrictamente en formato JSON válido, sin bloques de código markdown, sin texto adicional y sin envoltorios. Ejemplo: { "description": "...", "greeting": "..." }`;
+      `Debes retornar ÚNICAMENTE un objeto JSON con las siguientes propiedades:\n` +
+      `1. "description": Una descripción de su personalidad y trasfondo de 2 a 3 frases en español, escrita de manera inmersiva.\n` +
+      `2. "greeting": ${shouldGenerateGreeting ? 'Un mensaje inicial o saludo en primera persona en español, altamente inmersivo, y acorde a su dialecto, que incluya acciones entre asteriscos (ej. *te miro de arriba a abajo y sonrío*).' : 'Retorna un string vacío ""'}\n` +
+      `3. "clothing_and_setting_en": Una frase descriptiva muy corta en inglés (3 a 5 palabras) sobre la indumentaria y el escenario basada en el contexto/profesión (ejemplo: "wearing nurse uniform in a hospital clinic").\n\n` +
+      `Responde estrictamente en formato JSON válido, sin bloques de código markdown, sin texto adicional y sin envoltorios. Ejemplo: { "description": "...", "greeting": "...", "clothing_and_setting_en": "..." }`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -133,29 +176,42 @@ export async function POST(request: NextRequest) {
     
     let generatedDescription = '';
     let generatedGreeting = '';
+    let clothingAndSettingEn = '';
 
     try {
       const parsedJson = JSON.parse(assistantOutput);
       generatedDescription = parsedJson.description || '';
-      generatedGreeting = parsedJson.greeting || '';
+      generatedGreeting = shouldGenerateGreeting ? (parsedJson.greeting || '') : manualGreeting;
+      clothingAndSettingEn = parsedJson.clothing_and_setting_en || '';
     } catch (e) {
-      console.warn("Fallo al parsear JSON de OpenRouter, usando fallback estático:", assistantOutput);
-      generatedDescription = `${name} es una mujer de ${age} años con una personalidad ${personality}. Su cabello es ${hair} y tiene ojos ${eyes}.`;
-      generatedGreeting = `Hola. Qué bueno verte por aquí... ¿te sientas a mi lado?`;
+      console.warn("Fallo al parsear JSON de OpenRouter, usando fallback:", assistantOutput);
+      generatedDescription = `${name} es un/a ${gender} de ${age} años con una personalidad ${personality}.`;
+      generatedGreeting = shouldGenerateGreeting ? `Hola. ¿Cómo estás? Pasa, no te quedes ahí...` : manualGreeting;
+      clothingAndSettingEn = 'casual clothing in a dark room';
     }
 
     // 4. Generar la imagen con IA mediante Pollinations
-    const englishBuild = TRANSLATE_BUILD[build] || 'beautiful body';
+    const englishBuild = TRANSLATE_BUILD[build] || 'fit build';
     const englishEyes = TRANSLATE_EYES[eyes] || 'beautiful eyes';
     const englishHair = TRANSLATE_HAIR[hair] || 'beautiful hair';
     const englishSkin = TRANSLATE_SKIN[skin] || 'smooth skin';
+    const englishEthnicity = TRANSLATE_ETHNICITY[ethnicity] || 'mixed race';
     const englishPersonality = TRANSLATE_PERSONALITY[personality] || 'attractive look';
+    const englishGender = TRANSLATE_GENDER[gender] || 'person';
 
-    // Prompt de imagen estructurado y seductor (plano de rodillas hacia arriba)
-    const imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old woman standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+    let imagePrompt = '';
+    if (artStyle === 'Anime') {
+      // Prompt optimizado para estilo anime
+      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, key visual, black background`;
+    } else {
+      // Prompt optimizado para fotografía real fotorrealista (rodillas hacia arriba)
+      imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${englishEyes}, ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+    }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=512&height=512&nologo=true&safe=false&model=flux-realism&seed=${Math.floor(Math.random() * 100000)}`;
+    // Forzamos safe=false y pasamos el modelo flux (flux para real, flux/anime para anime)
+    const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
+    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=512&height=512&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {
@@ -195,7 +251,6 @@ export async function POST(request: NextRequest) {
       finalAvatarUrl = uploadResult.secure_url;
     } else {
       console.warn("Cloudinary no configurado. Usando imagen local codificada temporalmente.");
-      // En desarrollo sin Cloudinary, podemos convertir la imagen a base64 para visualizarla de inmediato
       const base64Image = imageBuffer.toString('base64');
       finalAvatarUrl = `data:image/jpeg;base64,${base64Image}`;
     }

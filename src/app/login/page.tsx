@@ -146,9 +146,9 @@ function LoginPageContent() {
         {/* Brand Logo & Name */}
         <div className="flex flex-col items-center gap-3">
           <img 
-            src="/logo.jpg" 
+            src="/logo_symbol.jpg" 
             alt="wonsfo logo" 
-            className="h-16 w-16 rounded-2xl border border-zinc-800 shadow-xl" 
+            className="h-16 w-16 rounded-2xl border border-pink-500/20 shadow-xl shadow-pink-500/5" 
           />
           <div className="flex items-center gap-2">
             <span className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-pink-500 via-purple-500 to-violet-500 bg-clip-text text-transparent">wonsfo</span>

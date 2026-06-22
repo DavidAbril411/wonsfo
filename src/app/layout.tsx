@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://wonsfo.com'),
   icons: {
     icon: [
-      { url: '/logo.jpg', sizes: 'any' },
-      { url: '/logo.jpg', type: 'image/jpeg' }
+      { url: '/logo_symbol.jpg', sizes: 'any' },
+      { url: '/logo_symbol.jpg', type: 'image/jpeg' }
     ],
-    shortcut: '/logo.jpg',
-    apple: '/logo.jpg',
+    shortcut: '/logo_symbol.jpg',
+    apple: '/logo_symbol.jpg',
   },
   openGraph: {
     title: 'Wonsfo - Chat de IA NSFW y Roleplay Interactivo',

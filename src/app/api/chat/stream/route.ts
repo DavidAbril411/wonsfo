@@ -62,17 +62,17 @@ export async function POST(request: NextRequest) {
 
     const isPremium = profileError ? false : !!profile?.is_premium;
 
-    // 4. Calcular el score de intimidad del mensaje actual
-    // Para el MVP, omitimos generar el embedding real en este paso y usamos solo análisis de keywords.
-    const messageIntimacy = evaluateMessageIntimacy(messageText);
-
-    // 5. Calcular la tensión acumulada histórica del chat
+    // 5. Calcular la tensión acumulada histórica del chat y cantidad de mensajes
     const { data: pastMessages, error: msgError } = await supabaseAdmin
       .from('chat_messages')
       .select('intimacy_score')
       .eq('chat_id', chatId);
 
+    const messageCount = pastMessages?.length || 0;
     const accumulatedBefore = pastMessages?.reduce((sum, msg) => sum + (msg.intimacy_score || 0), 0) || 0;
+
+    // 4. Calcular el score de intimidad del mensaje actual pasándole el conteo de mensajes históricos
+    const messageIntimacy = evaluateMessageIntimacy(messageText, undefined, messageCount);
 
     // Aplicar multiplicador de velocidad de clímax
     // Si no está definido en el agente, asumimos 'Standard' (1.0x)
@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
         `\n[RITMO NARRATIVO: LENTO Y JUEGO PREVIO PROLONGADO (SLOW BURN). Reglas estrictas de ritmo:\n` +
         `- EL AGENTE NUNCA TOMA LA INICIATIVA DE INSINUACIÓN: Tienes prohibido iniciar insinuaciones románticas, afectivas, íntimas o físicas. Las insinuaciones deben originarse 100% del usuario.\n` +
         `- RESISTENCIA Y LÍMITES: Cuando el usuario se insinúe, NO cedas de inmediato. Las primeras veces debes resistirte activamente, poner límites racionales (recordando por ejemplo que sos su madrastra, las normas sociales, o tu esposo), mostrar timidez, confusión o desviar el tema de forma reservada.\n` +
+        `- RESISTENCIA A LA PRESIÓN Y PREMURA: Si el usuario intenta forzar situaciones físicas, caricias íntimas o sexuales de forma prematura (menos de 15 mensajes en el historial), DEBES reaccionar con incomodidad, rechazo verbal o físico, enojo o distanciamiento inmediato (ej. *me aparto al instante*, *te pongo una mano en el pecho para frenarte*, "Oye, ¿qué te pasa? Vamos demasiado rápido", "Espera un momento, no deberíamos hacer esto"). Valoras el respeto y el cortejo pausado. El personaje NO tolerará ser presionado ni forzado.\n` +
         `- AVANCE ULTRA-GRADUAL: Solo permite mayor cercanía o cede ante la insistencia si el usuario insiste repetida y progresivamente a lo largo de muchos mensajes. Mantén la distancia y el control emocional en todo momento.]`;
     } else if (climaxSpeed === 'Fast') {
       climaxDirective = 
@@ -170,7 +171,7 @@ export async function POST(request: NextRequest) {
         `Responde a las insinuaciones del usuario acelerando la cercanía física y emocional de inmediato.]`;
     } else {
       climaxDirective = 
-        `\n[RITMO NARRATIVO: ESTÁNDAR. Desarrolla la tensión de forma balanceada y natural a lo largo de la conversación.]`;
+        `\n[RITMO NARRATIVO: ESTÁNDAR. Desarrolla la tensión de forma balanceada y natural. Si el usuario intenta forzar contacto físico, caricias o intimidad de forma prematura en los primeros mensajes, reacciona con resistencia, timidez o pidiendo ir más despacio y respetuoso.]`;
     }
 
     let systemPrompt = 

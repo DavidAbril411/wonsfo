@@ -63,9 +63,10 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
  * Evalúa el nivel de intimidad de un mensaje de forma híbrida (palabras clave + semántica).
  * @param text Mensaje a evaluar.
  * @param embedding Embedding vectorial del mensaje (opcional).
+ * @param messageCount Cantidad de mensajes previos en el chat (opcional).
  * @returns Score de intimidad calculado para el mensaje (0 - 100).
  */
-export function evaluateMessageIntimacy(text: string, embedding?: number[]): number {
+export function evaluateMessageIntimacy(text: string, embedding?: number[], messageCount = 0): number {
   const normalizedText = text.toLowerCase();
   let keywordScore = 0;
 
@@ -74,7 +75,16 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[]): num
     // Usar regex para buscar límites de palabra
     const regex = new RegExp(`\\b${kw}[a-z]*\\b`, 'i');
     if (regex.test(normalizedText)) {
-      keywordScore += score;
+      // Penalizar palabras físicas/sexuales si la conversación está empezando (menos de 12 mensajes)
+      const highPhysicalKws = ['desnud', 'gemir', 'gemid', 'excitad', 'hacer el amor', 'tocar', 'toca', 'acariciar', 'beso', 'besar', 'sexo', 'coger', 'placer'];
+      const isHighPhysical = highPhysicalKws.some(pk => kw.includes(pk) || pk.includes(kw));
+      
+      if (isHighPhysical && messageCount < 12) {
+        // Reducir la aportación al clímax en un 85% para castigar la premura y forzar slow burn
+        keywordScore += score * 0.15;
+      } else {
+        keywordScore += score;
+      }
     }
   }
 
@@ -83,7 +93,12 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[]): num
   if (embedding && embedding.length === CLIMAX_ANCHOR_VECTOR.length) {
     const similarity = cosineSimilarity(embedding, CLIMAX_ANCHOR_VECTOR);
     // Escalar la similitud del coseno (-1 a 1) a un score positivo
-    semanticScore = Math.max(0, similarity) * 50; 
+    let tempSemantic = Math.max(0, similarity) * 50;
+    if (messageCount < 12) {
+      // Reducir la similitud semántica en un 70% si es prematura
+      tempSemantic *= 0.3;
+    }
+    semanticScore = tempSemantic;
   }
 
   // Combinación híbrida ponderada

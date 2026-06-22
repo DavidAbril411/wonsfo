@@ -47,22 +47,20 @@ export default function Dashboard() {
   useEffect(() => {
     async function checkAuthAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/login');
-        return;
+      
+      if (session) {
+        setUser(session.user);
+        // Cargar perfil Premium
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_premium')
+          .eq('id', session.user.id)
+          .single();
+        setIsPremium(!!profile?.is_premium);
       }
-      setUser(session.user);
-
-      // Cargar perfil Premium
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_premium')
-        .eq('id', session.user.id)
-        .single();
-      setIsPremium(!!profile?.is_premium);
 
       try {
-        // Cargar personajes
+        // Cargar personajes de la base de datos de manera pública
         let { data: dbCharacters, error } = await supabase
           .from('characters')
           .select('*')
@@ -70,8 +68,8 @@ export default function Dashboard() {
 
         if (error) throw error;
 
-        // Si no hay personajes creados en la DB, creamos los por defecto para este usuario
-        if (!dbCharacters || dbCharacters.length === 0) {
+        // Si no hay personajes creados en la DB y hay sesión de usuario, creamos los por defecto para este usuario
+        if ((!dbCharacters || dbCharacters.length === 0) && session) {
           const insertPromises = DEFAULT_AGENTS.map(agent => 
             supabase.from('characters').insert({
               ...agent,
@@ -81,6 +79,9 @@ export default function Dashboard() {
           
           const results = await Promise.all(insertPromises);
           dbCharacters = results.map(r => r.data).filter(Boolean);
+        } else if ((!dbCharacters || dbCharacters.length === 0) && !session) {
+          // Si no hay sesión y la DB está vacía, mostramos los estáticos en memoria
+          dbCharacters = DEFAULT_AGENTS.map((a, i) => ({ ...a, id: `static-${i}` }));
         }
 
         setAgents(dbCharacters || []);
@@ -98,6 +99,12 @@ export default function Dashboard() {
   }, [router]);
 
   const handleStartChat = async (characterId: string) => {
+    if (!user) {
+      // Redirigir a la landing page pública del personaje para los no registrados
+      router.push(`/char/${characterId}`);
+      return;
+    }
+
     if (dbError || characterId.startsWith('static-')) {
       alert('Modo offline/Error: No es posible crear chats en Supabase en este momento.');
       return;
@@ -146,10 +153,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="bg-zinc-950 px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+    <div className="bg-zinc-950 px-4 py-8 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full pb-24 md:pb-8">
       {/* Mensaje de aviso de base de datos */}
       {dbError && (
-        <div className="mb-8 rounded-md bg-amber-950/20 border border-amber-900/50 p-4 text-sm text-amber-400 flex items-start gap-3">
+        <div className="mb-8 rounded-xl bg-amber-950/15 border border-amber-900/40 p-4 text-sm text-amber-400 flex items-start gap-3">
           <ShieldAlert className="h-5 w-5 shrink-0 text-amber-500" />
           <div>
             <p className="font-semibold">Conexión a Base de Datos No Detectada</p>
@@ -159,14 +166,16 @@ export default function Dashboard() {
       )}
 
       {/* Hero Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-850 pb-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-zinc-900 pb-8">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-zinc-50">Compañeros Virtuales</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-pink-500 via-purple-500 to-violet-500 bg-clip-text text-transparent">
+            Compañeros Virtuales
+          </h1>
           <p className="mt-2 text-sm text-zinc-400">Selecciona un agente para iniciar un juego de rol narrativo. Configura su acento o ritmo desde el perfil.</p>
         </div>
         <button
-          onClick={() => router.push('/create')}
-          className="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition-colors"
+          onClick={() => router.push(user ? '/create' : '/login')}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-4 py-2.5 text-xs font-bold text-zinc-50 shadow-md hover:opacity-90 transition-all duration-200"
         >
           <Plus className="h-4 w-4" />
           Nuevo Agente
@@ -178,7 +187,7 @@ export default function Dashboard() {
         {agents.map((agent) => (
           <div
             key={agent.id}
-            className="flex flex-col justify-between rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all duration-200"
+            className="flex flex-col justify-between rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6 hover:border-pink-500/20 hover:shadow-[0_0_20px_rgba(236,72,153,0.05)] transition-all duration-300"
           >
             <div>
               {/* Avatar & Detalles */}
@@ -186,19 +195,19 @@ export default function Dashboard() {
                 <img
                   src={agent.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop'}
                   alt={agent.name}
-                  className="h-16 w-16 rounded-lg object-cover border border-zinc-800"
+                  className="h-16 w-16 rounded-xl object-cover border border-zinc-800/80"
                 />
                 <div>
-                  <h3 className="text-base font-semibold text-zinc-50 leading-tight">{agent.name}</h3>
+                  <h3 className="text-base font-bold text-zinc-50 leading-tight">{agent.name}</h3>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {/* Dialect Indicator */}
-                    <span className="inline-flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
-                      <MapPin className="h-3 w-3" />
+                    <span className="inline-flex items-center gap-1 rounded-md bg-zinc-900 border border-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-350">
+                      <MapPin className="h-3 w-3 text-zinc-500" />
                       {agent.default_country}
                     </span>
                     {/* Speed Indicator */}
-                    <span className="inline-flex items-center gap-1 rounded bg-zinc-900 border border-zinc-800 px-1.5 py-0.5 text-[10px] text-zinc-400">
-                      <Gauge className="h-3 w-3" />
+                    <span className="inline-flex items-center gap-1 rounded-md bg-pink-950/15 border border-pink-900/30 px-2 py-0.5 text-[10px] text-pink-400 font-semibold">
+                      <Gauge className="h-3 w-3 text-pink-500" />
                       Clímax: {agent.climax_speed || 'Standard'}
                     </span>
                   </div>
@@ -212,10 +221,10 @@ export default function Dashboard() {
             </div>
 
             {/* Acción */}
-            <div className="mt-6 pt-4 border-t border-zinc-850">
+            <div className="mt-6 pt-4 border-t border-zinc-900">
               <button
                 onClick={() => handleStartChat(agent.id)}
-                className="flex w-full items-center justify-center gap-2 rounded-md border border-zinc-800 bg-zinc-900/50 py-2 text-xs font-medium text-zinc-300 hover:text-zinc-50 hover:bg-zinc-800 transition-colors"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/50 py-2.5 text-xs font-bold text-zinc-200 hover:text-zinc-50 hover:bg-zinc-800 hover:border-zinc-700 transition-all duration-200"
               >
                 <MessageSquare className="h-4 w-4" />
                 Chatear
@@ -227,13 +236,13 @@ export default function Dashboard() {
 
       {/* Empty State */}
       {agents.length === 0 && (
-        <div className="mt-12 text-center border border-dashed border-zinc-800 rounded-xl py-16 px-4">
-          <Users className="mx-auto h-10 w-10 text-zinc-600" />
+        <div className="mt-12 text-center border border-dashed border-zinc-800 rounded-2xl py-16 px-4">
+          <Users className="mx-auto h-10 w-10 text-zinc-700" />
           <h3 className="mt-4 text-sm font-semibold text-zinc-200">No hay agentes</h3>
           <p className="mt-1 text-xs text-zinc-500">Comienza creando tu propio personaje personalizado.</p>
           <button
-            onClick={() => router.push('/create')}
-            className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition-colors"
+            onClick={() => router.push(user ? '/create' : '/login')}
+            className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-4 py-2 text-xs font-bold text-zinc-50 shadow-md hover:opacity-90 transition-all"
           >
             Crear tu primer Agente
           </button>

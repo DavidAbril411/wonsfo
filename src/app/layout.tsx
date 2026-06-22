@@ -14,8 +14,26 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "wonsfo - Chats Interactivos NSFW",
-  description: "Plataforma premium de chats interactivos con agentes virtuales y clímax narrativo.",
+  title: {
+    default: 'Wonsfo - Chat de IA NSFW y Roleplay Interactivo Gratis',
+    template: '%s | Wonsfo'
+  },
+  description: 'Chatea gratis con personajes virtuales de inteligencia artificial en español. Explora fantasías, roleplay personalizado y avatares realistas sin límites.',
+  keywords: ['chat ia nsfw', 'roleplay ia', 'novia virtual gratis', 'personajes ia español', 'wonsfo', 'inteligencia artificial nsfw'],
+  metadataBase: new URL('https://wonsfo.com'),
+  openGraph: {
+    title: 'Wonsfo - Chat de IA NSFW y Roleplay Interactivo',
+    description: 'Chatea con personajes virtuales e IA personalizada en español. Roleplay sin censura.',
+    url: 'https://wonsfo.com',
+    siteName: 'Wonsfo',
+    locale: 'es_ES',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Wonsfo - Chat de IA NSFW',
+    description: 'Chatea sin filtros con personajes de inteligencia artificial.',
+  }
 };
 
 export default function RootLayout({

@@ -120,23 +120,23 @@ export default function CreateAgentPage() {
   }
 
   return (
-    <div className="bg-zinc-950 px-4 py-8 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full font-sans">
-      <div className="flex items-center gap-2 mb-6 text-zinc-400 hover:text-zinc-50 transition-colors">
+    <div className="bg-zinc-950 px-4 py-8 sm:px-6 lg:px-8 max-w-2xl mx-auto w-full font-sans pb-24 md:pb-8">
+      <div className="flex items-center gap-2 mb-6 text-zinc-450 hover:text-zinc-200 transition-colors">
         <ArrowLeft className="h-4 w-4" />
-        <button onClick={() => router.push('/')} className="text-xs font-semibold">
+        <button onClick={() => router.push('/')} className="text-xs font-bold uppercase tracking-wider">
           Volver a Agentes
         </button>
       </div>
 
-      <div className="border-b border-zinc-850 pb-6 mb-8">
-        <h1 className="text-2xl font-bold text-zinc-50 flex items-center gap-2">
+      <div className="border-b border-zinc-900 pb-6 mb-8">
+        <h1 className="text-2xl font-extrabold bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent w-fit flex items-center gap-2">
           Crear Nuevo Agente
         </h1>
         <p className="mt-1.5 text-xs text-zinc-400">Define su identidad, historia y parámetros de conversación.</p>
       </div>
 
       {errorMsg && (
-        <div className="mb-6 rounded-md bg-red-950/20 border border-red-900/50 p-4 text-sm text-red-400 flex items-start gap-2">
+        <div className="mb-6 rounded-xl bg-red-950/20 border border-red-900/50 p-4 text-sm text-red-400 flex items-start gap-2">
           <AlertCircle className="h-5 w-5 shrink-0" />
           <span>{errorMsg}</span>
         </div>
@@ -144,13 +144,13 @@ export default function CreateAgentPage() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Identidad del Agente */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 space-y-6">
-          <h3 className="text-sm font-semibold text-zinc-200 border-b border-zinc-850 pb-3">Identidad Básica</h3>
+        <div className="rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6 space-y-6">
+          <h3 className="text-sm font-semibold text-zinc-200 border-b border-zinc-900 pb-3">Identidad Básica</h3>
 
           {/* Nombre */}
           <div>
-            <label htmlFor="name" className="block text-xs text-zinc-400 font-medium">
-              Nombre del Agente <span className="text-red-500">*</span>
+            <label htmlFor="name" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+              Nombre del Agente <span className="text-pink-500">*</span>
             </label>
             <div className="mt-2">
               <input
@@ -159,7 +159,7 @@ export default function CreateAgentPage() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors"
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
                 placeholder="Elena (La Madrastra)"
               />
             </div>
@@ -167,9 +167,9 @@ export default function CreateAgentPage() {
 
           {/* Avatar Upload */}
           <div>
-            <label className="block text-xs text-zinc-400 font-medium">Avatar de Perfil</label>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-450">Avatar de Perfil</label>
             <div className="mt-3 flex items-center gap-4">
-              <div className="relative h-16 w-16 rounded-lg bg-zinc-900 border border-zinc-850 flex items-center justify-center overflow-hidden">
+              <div className="relative h-16 w-16 rounded-xl bg-zinc-900 border border-zinc-850 flex items-center justify-center overflow-hidden">
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Preview" className="h-full w-full object-cover" />
                 ) : (
@@ -184,7 +184,7 @@ export default function CreateAgentPage() {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <label className="flex items-center gap-1.5 cursor-pointer rounded-md border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-800 px-3 py-1.5 text-xs text-zinc-300 font-medium transition-colors">
+                  <label className="flex items-center gap-1.5 cursor-pointer rounded-xl border border-zinc-850 bg-zinc-900/50 hover:bg-zinc-800 px-3 py-2 text-xs text-zinc-300 font-bold transition-colors">
                     <Camera className="h-3.5 w-3.5" />
                     Subir Imagen
                     <input
@@ -205,7 +205,7 @@ export default function CreateAgentPage() {
                 type="text"
                 value={avatarUrl}
                 onChange={(e) => setAvatarUrl(e.target.value)}
-                className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-xs transition-colors font-mono"
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors font-mono"
                 placeholder="O ingresa una URL de imagen externa..."
               />
             </div>
@@ -213,13 +213,13 @@ export default function CreateAgentPage() {
         </div>
 
         {/* Psicología del Agente */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 space-y-6">
-          <h3 className="text-sm font-semibold text-zinc-200 border-b border-zinc-850 pb-3">Psicología y Diálogos</h3>
+        <div className="rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6 space-y-6">
+          <h3 className="text-sm font-semibold text-zinc-200 border-b border-zinc-900 pb-3">Psicología y Diálogos</h3>
 
           {/* Personalidad */}
           <div>
-            <label htmlFor="personality" className="block text-xs text-zinc-400 font-medium">
-              Descripción de Personalidad y Contexto <span className="text-red-500">*</span>
+            <label htmlFor="personality" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+              Descripción de Personalidad y Contexto <span className="text-pink-500">*</span>
             </label>
             <p className="text-[10px] text-zinc-500 mt-1 leading-relaxed">
               Describe quién es, su relación con el usuario, cómo se comporta, sus secretos o fetiches. Cuanto más detallado, más inmersiva la conversación.
@@ -231,7 +231,7 @@ export default function CreateAgentPage() {
                 required
                 value={personality}
                 onChange={(e) => setPersonality(e.target.value)}
-                className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors resize-none leading-relaxed"
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors resize-none leading-relaxed"
                 placeholder="Elena tiene 38 años y es tu madrastra..."
               />
             </div>
@@ -239,8 +239,8 @@ export default function CreateAgentPage() {
 
           {/* Saludo Inicial */}
           <div>
-            <label htmlFor="greeting" className="block text-xs text-zinc-400 font-medium">
-              Mensaje Inicial / Saludo <span className="text-red-500">*</span>
+            <label htmlFor="greeting" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+              Mensaje Inicial / Saludo <span className="text-pink-500">*</span>
             </label>
             <p className="text-[10px] text-zinc-500 mt-1">El primer mensaje con el que el agente iniciará la conversación.</p>
             <div className="mt-2.5">
@@ -250,7 +250,7 @@ export default function CreateAgentPage() {
                 required
                 value={greeting}
                 onChange={(e) => setGreeting(e.target.value)}
-                className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors resize-none leading-relaxed"
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors resize-none leading-relaxed"
                 placeholder="Hola, cariño. Pensé que no volverías hoy..."
               />
             </div>
@@ -258,11 +258,11 @@ export default function CreateAgentPage() {
         </div>
 
         {/* Configuración Avanzada */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 space-y-6">
-          <div className="flex items-center gap-1.5 border-b border-zinc-850 pb-3">
+        <div className="rounded-2xl border border-zinc-900 bg-zinc-900/20 p-6 space-y-6">
+          <div className="flex items-center gap-1.5 border-b border-zinc-900 pb-3">
             <h3 className="text-sm font-semibold text-zinc-200">Parámetros de Conversación</h3>
             {!isPremium && (
-              <span className="rounded bg-zinc-900 border border-zinc-800 px-1 py-0.5 text-[9px] text-zinc-500 font-semibold tracking-wide">
+              <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-[9px] text-zinc-500 font-semibold tracking-wide">
                 PREMIUM REQUERIDO
               </span>
             )}
@@ -270,8 +270,8 @@ export default function CreateAgentPage() {
 
           {/* Dialecto / Localismo */}
           <div>
-            <label htmlFor="dialect" className="flex items-center gap-1 text-xs text-zinc-400 font-medium">
-              <MapPin className="h-3.5 w-3.5" />
+            <label htmlFor="dialect" className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-zinc-450">
+              <MapPin className="h-3.5 w-3.5 text-zinc-500" />
               Dialecto y Acento
             </label>
             <select
@@ -279,7 +279,7 @@ export default function CreateAgentPage() {
               value={dialect}
               onChange={(e) => setDialect(e.target.value)}
               disabled={!isPremium}
-              className="mt-2 block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-2 block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="Neutro">Neutro (Español estándar de chat)</option>
               <option value="Argentina">Argentina (Voseo rioplatense)</option>
@@ -294,8 +294,8 @@ export default function CreateAgentPage() {
 
           {/* Velocidad de Clímax */}
           <div>
-            <label htmlFor="climax" className="flex items-center gap-1 text-xs text-zinc-400 font-medium">
-              <Gauge className="h-3.5 w-3.5" />
+            <label htmlFor="climax" className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-zinc-450">
+              <Gauge className="h-3.5 w-3.5 text-zinc-500" />
               Velocidad de Clímax
             </label>
             <select
@@ -303,7 +303,7 @@ export default function CreateAgentPage() {
               value={climaxSpeed}
               onChange={(e) => setClimaxSpeed(e.target.value)}
               disabled={!isPremium}
-              className="mt-2 block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-2 block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <option value="Fast">Rápido (Clímax explícito a los 5-10 mensajes)</option>
               <option value="Standard">Estándar (Conversación balanceada, 15-20 mensajes)</option>
@@ -316,11 +316,11 @@ export default function CreateAgentPage() {
         </div>
 
         {/* Botones de acción */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-zinc-850">
+        <div className="flex justify-end gap-3 pt-4 border-t border-zinc-900">
           <button
             type="button"
             onClick={() => router.push('/')}
-            className="rounded-md border border-zinc-850 px-4 py-2 text-xs font-semibold text-zinc-400 hover:text-zinc-50 hover:bg-zinc-900 transition-colors"
+            className="rounded-xl border border-zinc-900 px-4 py-2.5 text-xs font-bold text-zinc-450 hover:text-zinc-200 hover:bg-zinc-900/50 transition-colors"
           >
             Cancelar
           </button>
@@ -328,7 +328,7 @@ export default function CreateAgentPage() {
           <button
             type="submit"
             disabled={saving || uploading}
-            className="inline-flex items-center gap-1.5 rounded-md bg-zinc-50 px-4 py-2 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-4 py-2.5 text-xs font-bold text-zinc-50 hover:opacity-90 transition-all disabled:opacity-50"
           >
             <Plus className="h-4 w-4" />
             {saving ? 'Guardando...' : 'Crear Agente'}

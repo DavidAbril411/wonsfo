@@ -377,7 +377,7 @@ export default function ChatPage() {
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={`Envía un mensaje a ${character.name}...`}
-                className="block flex-1 rounded-md border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors disabled:opacity-50"
+                className="block flex-1 rounded-md border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-base transition-colors disabled:opacity-50"
               />
               <button
                 type="submit"

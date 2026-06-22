@@ -1,12 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Flame, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const characterId = searchParams.get('characterId');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -21,11 +24,12 @@ export default function LoginPage() {
     async function checkUser() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        router.push('/');
+        const target = characterId ? `/chat-redirect?characterId=${characterId}` : '/';
+        router.push(target);
       }
     }
     checkUser();
-  }, [router]);
+  }, [router, characterId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,7 +55,8 @@ export default function LoginPage() {
           setSuccessMsg('¡Registro exitoso! Te enviamos un código de confirmación. Ingrésalo a continuación para activar tu cuenta.');
           setIsConfirmingOtp(true);
         } else {
-          router.push('/');
+          const target = characterId ? `/chat-redirect?characterId=${characterId}` : '/';
+          router.push(target);
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -59,7 +64,8 @@ export default function LoginPage() {
           password
         });
         if (error) throw error;
-        router.push('/');
+        const target = characterId ? `/chat-redirect?characterId=${characterId}` : '/';
+        router.push(target);
       }
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -96,8 +102,9 @@ export default function LoginPage() {
       if (error) throw error;
       
       setSuccessMsg('¡Cuenta confirmada con éxito! Redirigiendo...');
+      const target = characterId ? `/chat-redirect?characterId=${characterId}` : '/';
       setTimeout(() => {
-        router.push('/');
+        router.push(target);
       }, 1500);
     } catch (err: any) {
       console.error('OTP verification error:', err);
@@ -135,13 +142,21 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen flex-col justify-center px-6 py-12 lg:px-8 bg-zinc-950 font-sans">
-      <div className="sm:mx-auto sm:w-full sm:max-w-sm">
-        <div className="flex justify-center items-center gap-2">
-          <Flame className="h-8 w-8 text-red-500 fill-red-500 animate-pulse" />
-          <span className="text-3xl font-extrabold tracking-tight text-zinc-50 font-sans">wonsfo</span>
-          <span className="rounded-md bg-red-950/40 px-1.5 py-0.5 text-xs font-semibold text-red-400 border border-red-900/50">NSFW</span>
+      <div className="sm:mx-auto sm:w-full sm:max-w-sm flex flex-col items-center">
+        {/* Brand Logo & Name */}
+        <div className="flex flex-col items-center gap-3">
+          <img 
+            src="/logo.jpg" 
+            alt="wonsfo logo" 
+            className="h-16 w-16 rounded-2xl border border-zinc-800 shadow-xl" 
+          />
+          <div className="flex items-center gap-2">
+            <span className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-pink-500 via-purple-500 to-violet-500 bg-clip-text text-transparent">wonsfo</span>
+            <span className="rounded-md bg-pink-950/40 px-1.5 py-0.5 text-xs font-bold text-pink-400 border border-pink-900/40">NSFW</span>
+          </div>
         </div>
-        <h2 className="mt-8 text-center text-xl font-medium tracking-tight text-zinc-400">
+
+        <h2 className="mt-6 text-center text-sm font-semibold tracking-wider text-zinc-450 uppercase">
           {isConfirmingOtp 
             ? 'Confirma tu cuenta de Wonsfo' 
             : isSignUp 
@@ -150,16 +165,16 @@ export default function LoginPage() {
         </h2>
       </div>
 
-      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-sm">
         {errorMsg && (
-          <div className="mb-6 rounded-md bg-red-950/20 border border-red-900/50 p-4 text-sm text-red-400 flex items-start gap-2">
+          <div className="mb-6 rounded-xl bg-red-950/20 border border-red-900/50 p-4 text-sm text-red-400 flex items-start gap-2">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <span>{errorMsg}</span>
           </div>
         )}
 
         {successMsg && (
-          <div className="mb-6 rounded-md bg-emerald-950/20 border border-emerald-900/50 p-4 text-sm text-emerald-400 flex items-start gap-2">
+          <div className="mb-6 rounded-xl bg-emerald-950/20 border border-emerald-900/50 p-4 text-sm text-emerald-400 flex items-start gap-2">
             <CheckCircle2 className="h-5 w-5 shrink-0" />
             <span>{successMsg}</span>
           </div>
@@ -168,7 +183,7 @@ export default function LoginPage() {
         {isConfirmingOtp ? (
           <form onSubmit={handleVerifyOtp} className="space-y-6">
             <div>
-              <label htmlFor="verify-email" className="block text-sm font-medium text-zinc-300">
+              <label htmlFor="verify-email" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
                 Correo electrónico
               </label>
               <div className="mt-2">
@@ -179,14 +194,14 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors"
+                  className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-150 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
                   placeholder="ejemplo@correo.com"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="otp" className="block text-sm font-medium text-zinc-300">
+              <label htmlFor="otp" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
                 Código de Verificación (6 dígitos)
               </label>
               <div className="mt-2">
@@ -198,7 +213,7 @@ export default function LoginPage() {
                   required
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-center text-xl tracking-widest font-mono text-zinc-100 placeholder:text-zinc-600 focus:border-zinc-500 focus:outline-none focus:ring-0 transition-colors"
+                  className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-center text-2xl tracking-widest font-mono text-zinc-100 placeholder:text-zinc-700 focus:border-pink-500 focus:outline-none focus:ring-0 transition-colors"
                   placeholder="000000"
                 />
               </div>
@@ -208,18 +223,18 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="flex w-full justify-center rounded-md bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-950 shadow-xs hover:bg-zinc-200 focus-visible:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                className="flex w-full justify-center rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-3 py-2.5 text-sm font-bold text-zinc-50 shadow-md hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
               >
                 {loading ? 'Verificando...' : 'Verificar Código'}
               </button>
             </div>
 
-            <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row text-sm pt-2 border-t border-zinc-900">
+            <div className="mt-6 flex flex-col items-center justify-between gap-4 sm:flex-row text-xs pt-4 border-t border-zinc-900">
               <button
                 type="button"
                 onClick={handleResendOtp}
                 disabled={loading}
-                className="font-medium text-zinc-400 hover:text-zinc-50 transition-all disabled:opacity-50"
+                className="font-bold text-pink-500 hover:text-pink-400 transition-colors disabled:opacity-50"
               >
                 Reenviar código
               </button>
@@ -230,7 +245,7 @@ export default function LoginPage() {
                   setSuccessMsg('');
                   setErrorMsg('');
                 }}
-                className="font-medium text-zinc-400 hover:text-zinc-50 transition-all"
+                className="font-semibold text-zinc-400 hover:text-zinc-300 transition-colors"
               >
                 Volver a Iniciar Sesión
               </button>
@@ -240,7 +255,7 @@ export default function LoginPage() {
           <>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-zinc-300">
+                <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
                   Correo electrónico
                 </label>
                 <div className="mt-2">
@@ -252,14 +267,14 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors"
+                    className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-150 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
                     placeholder="ejemplo@correo.com"
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-zinc-300">
+                <label htmlFor="password" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
                   Contraseña
                 </label>
                 <div className="mt-2">
@@ -271,7 +286,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full rounded-md border border-zinc-800 bg-zinc-900/50 px-3 py-2 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-sm transition-colors"
+                    className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-150 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
                     placeholder="••••••••"
                   />
                 </div>
@@ -281,7 +296,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex w-full justify-center rounded-md bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-950 shadow-xs hover:bg-zinc-200 focus-visible:outline-hidden disabled:opacity-50 disabled:pointer-events-none transition-colors"
+                  className="flex w-full justify-center rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-3 py-2.5 text-sm font-bold text-zinc-50 shadow-md hover:opacity-90 disabled:opacity-50 disabled:pointer-events-none transition-all duration-200"
                 >
                   {loading ? 'Procesando...' : isSignUp ? 'Registrarse' : 'Iniciar Sesión'}
                 </button>
@@ -297,13 +312,13 @@ export default function LoginPage() {
                     setErrorMsg('');
                     setSuccessMsg('');
                   }}
-                  className="font-medium text-zinc-300 hover:text-zinc-50 hover:underline transition-all"
+                  className="font-bold text-pink-500 hover:text-pink-400 hover:underline transition-colors"
                 >
                   {isSignUp ? 'Inicia sesión aquí' : 'Regístrate gratis aquí'}
                 </button>
               </p>
 
-              <p>
+              <p className="text-xs text-zinc-550">
                 ¿Ya te registraste pero no pudiste verificar?{' '}
                 <button
                   onClick={() => {
@@ -311,7 +326,7 @@ export default function LoginPage() {
                     setErrorMsg('');
                     setSuccessMsg('');
                   }}
-                  className="font-medium text-zinc-300 hover:text-zinc-50 hover:underline transition-all"
+                  className="font-bold text-pink-500 hover:text-pink-400 hover:underline transition-colors"
                 >
                   Ingresa tu código de 6 dígitos aquí
                 </button>
@@ -323,3 +338,16 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-1 items-center justify-center bg-zinc-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-800 border-t-zinc-50"></div>
+      </div>
+    }>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+

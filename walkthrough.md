@@ -126,5 +126,31 @@ Para evitar registros masivos de cuentas ficticias, implementamos y validamos la
     3.  El usuario puede volver a solicitar el reenvío del código haciendo clic en *"Reenviar código"*.
     4.  Una vez ingresado el código correcto, el sistema autentica la cuenta mediante `supabase.auth.verifyOtp` y redirige al dashboard.
 
+---
+
+## 6. Implementación de Estrategia SEO Profesional
+
+Para maximizar el tráfico orgánico, habilitamos la indexación inteligente de personajes sin requerir inicio de sesión:
+
+### A. Base de Datos RLS
+*   Modificamos la política RLS en la VPS para la tabla `characters` permitiendo consultas `SELECT` públicas (`USING (true)`). Esto posibilita que el Sitemap y los robots de búsqueda recopilen los datos de personajes de forma directa.
+
+### B. Robots.txt (`src/app/robots.ts`)
+*   Se configuraron las reglas de rastreo permitiendo indexar la Home (`/`), la pantalla de login (`/login`) y las fichas técnicas (`/char/*`), bloqueando caminos privados de aplicación (`/chat/*`, `/profile`, `/create`, `/api/*`).
+
+### C. Sitemap XML Dinámico (`src/app/sitemap.ts`)
+*   Implementamos un generador de sitemaps dinámicos que lee todos los personajes creados en Supabase cada hora y publica sus enlaces `/char/[id]` con prioridad de rastreo `0.8` de forma automática.
+
+### D. Ficha Técnica del Personaje para Indexación (`src/app/char/[id]/page.tsx`)
+*   Creamos una landing page por personaje renderizada en el servidor (SSR).
+*   **Metadatos dinámicos:** Títulos y descripciones SEO personalizados basados en el personaje e imágenes del avatar para OpenGraph/Twitter Cards.
+*   **Datos estructurados:** Inyección de esquemas JSON-LD (`SoftwareApplication` / `GameApplication`) para que buscadores muestren resultados enriquecidos de la IA.
+*   **Experiencia:** Los no autenticados ven la información y un CTA de *"Iniciar Chat de Rol Gratis"*. Al hacer click, la página intermedia `/chat-redirect` los guía a iniciar sesión e inicia la conversación automáticamente al loguearse.
+
+### E. Modificaciones de Home y Flujo de Autenticación
+*   La Home (`/`) ahora lista públicamente los personajes disponibles sin redirigir a `/login`.
+*   La página `/login` ahora detecta redirecciones de intención (con el parámetro `characterId`) para guiar al usuario logueado o verificado directamente al chat deseado, optimizando la tasa de conversión de registro.
+
+
 
 

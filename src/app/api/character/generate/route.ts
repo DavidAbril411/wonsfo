@@ -268,7 +268,7 @@ export async function POST(request: NextRequest) {
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
     // Forzamos safe=false y pasamos el modelo flux (flux para real, flux/anime para anime)
     const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=512&height=512&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {
@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
           {
             folder: 'wonsfo_avatars',
             allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-            transformation: [{ width: 400, height: 400, crop: 'limit' }]
+            transformation: [{ width: 1024, height: 1024, crop: 'limit', quality: 'auto' }]
           },
           (error, result) => {
             if (error) reject(error);

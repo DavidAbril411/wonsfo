@@ -161,12 +161,12 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => setIsPremium(!isPremium)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                isPremium ? 'bg-pink-500' : 'bg-zinc-800'
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-250 ease-in-out focus:outline-hidden ${
+                isPremium ? 'bg-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.45)]' : 'bg-zinc-800'
               }`}
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-zinc-950 shadow-sm ring-0 transition duration-200 ease-in-out ${
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-zinc-950 shadow-md ring-0 transition duration-250 ease-in-out ${
                   isPremium ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />

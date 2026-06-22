@@ -52,3 +52,25 @@ body {
   border-color: rgba(236, 72, 153, 0.4);
   box-shadow: 0 0 20px rgba(236, 72, 153, 0.08);
 }
+
+/* Nuevos estilos de marca alineados con el logo rosa/morado neón */
+.text-neon-brand {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-neon-brand {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+}
+
+.neon-glow-brand {
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.25), 0 0 5px rgba(139, 92, 246, 0.2);
+}
+
+.border-neon-hover-brand:hover {
+  border-color: rgba(236, 72, 153, 0.45);
+  box-shadow: 0 0 15px rgba(236, 72, 153, 0.12), 0 0 5px rgba(139, 92, 246, 0.08);
+}
+

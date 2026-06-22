@@ -328,7 +328,7 @@ export default function CreateAgentPage() {
           <button
             type="submit"
             disabled={saving || uploading}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-violet-600 px-4 py-2.5 text-xs font-bold text-zinc-50 hover:opacity-90 transition-all disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-neon-brand px-4 py-2.5 text-xs font-bold text-zinc-50 shadow-[0_0_10px_rgba(236,72,153,0.25)] hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             {saving ? 'Guardando...' : 'Crear Agente'}

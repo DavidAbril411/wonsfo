@@ -108,7 +108,7 @@ export default async function CharacterDetailPage({ params }: CharPageProps) {
           </div>
           
           <h1 className="mt-4 text-2xl sm:text-3xl font-extrabold text-zinc-50 tracking-tight">{character.name}</h1>
-          <p className="mt-1.5 text-xs text-red-500 font-semibold tracking-wider uppercase bg-red-950/40 px-2 py-0.5 rounded border border-red-900/30">
+          <p className="mt-1.5 text-xs text-pink-400 font-bold tracking-wider uppercase bg-pink-950/30 px-2.5 py-0.5 rounded-md border border-pink-900/40">
             Compañero de Chat IA
           </p>
         </div>
@@ -155,7 +155,7 @@ export default async function CharacterDetailPage({ params }: CharPageProps) {
         <div className="pt-4">
           <Link
             href={`/chat-redirect?characterId=${character.id}`}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-50 hover:bg-zinc-200 py-3.5 text-sm font-bold text-zinc-950 transition-colors shadow-lg"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-neon-brand text-zinc-50 py-3.5 text-sm font-bold shadow-[0_0_15px_rgba(236,72,153,0.25)] hover:opacity-90 transition-all"
           >
             <MessageSquare className="h-4 w-4" />
             Iniciar Chat de Rol Gratis

@@ -78,9 +78,9 @@ export default function Header() {
             <img 
               src="/logo.jpg" 
               alt="wonsfo logo" 
-              className="h-8 w-8 rounded-lg object-cover border border-zinc-800 shadow-md" 
+              className="h-8 w-8 rounded-lg object-cover border border-pink-500/20 shadow-[0_0_10px_rgba(236,72,153,0.1)]" 
             />
-            <span className="font-sans text-lg font-bold tracking-tight text-zinc-50">wonsfo</span>
+            <span className="font-sans text-lg font-black tracking-tight text-neon-brand">wonsfo</span>
             <span className="rounded-md bg-pink-950/40 px-1.5 py-0.5 text-[9px] font-semibold text-pink-400 border border-pink-900/40">NSFW</span>
           </Link>
 
@@ -152,33 +152,33 @@ export default function Header() {
 
       {/* Bottom Nav Bar for Mobile */}
       {showMobileNav && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-900 bg-zinc-950/95 backdrop-blur-lg pb-safe">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-900/80 bg-zinc-950/90 backdrop-blur-md pb-safe shadow-[0_-8px_20px_rgba(236,72,153,0.03)]">
           <div className="flex h-16 items-center justify-around px-4">
             <Link 
               href="/" 
-              className={`flex flex-col items-center gap-1 text-[10px] font-bold tracking-wide uppercase transition-colors ${
-                pathname === '/' ? 'text-pink-500' : 'text-zinc-500 hover:text-zinc-400'
+              className={`flex flex-col items-center gap-1.5 text-[9px] font-bold tracking-wider uppercase transition-all duration-200 ${
+                pathname === '/' ? 'text-pink-400 drop-shadow-[0_0_8px_rgba(236,72,153,0.3)]' : 'text-zinc-500 hover:text-zinc-350'
               }`}
             >
-              <Flame className="h-5 w-5" />
+              <Flame className={`h-5 w-5 ${pathname === '/' ? 'text-pink-400' : 'text-zinc-500'}`} />
               <span>Agentes</span>
             </Link>
             <Link 
               href="/create" 
-              className={`flex flex-col items-center gap-1 text-[10px] font-bold tracking-wide uppercase transition-colors ${
-                pathname === '/create' ? 'text-pink-500' : 'text-zinc-500 hover:text-zinc-400'
+              className={`flex flex-col items-center gap-1.5 text-[9px] font-bold tracking-wider uppercase transition-all duration-200 ${
+                pathname === '/create' ? 'text-pink-400 drop-shadow-[0_0_8px_rgba(236,72,153,0.3)]' : 'text-zinc-500 hover:text-zinc-350'
               }`}
             >
-              <MessageSquarePlus className="h-5 w-5" />
+              <MessageSquarePlus className={`h-5 w-5 ${pathname === '/create' ? 'text-pink-400' : 'text-zinc-500'}`} />
               <span>Crear</span>
             </Link>
             <Link 
               href="/profile" 
-              className={`flex flex-col items-center gap-1 text-[10px] font-bold tracking-wide uppercase transition-colors ${
-                pathname === '/profile' ? 'text-pink-500' : 'text-zinc-500 hover:text-zinc-400'
+              className={`flex flex-col items-center gap-1.5 text-[9px] font-bold tracking-wider uppercase transition-all duration-200 ${
+                pathname === '/profile' ? 'text-pink-400 drop-shadow-[0_0_8px_rgba(236,72,153,0.3)]' : 'text-zinc-500 hover:text-zinc-350'
               }`}
             >
-              <User className="h-5 w-5" />
+              <User className={`h-5 w-5 ${pathname === '/profile' ? 'text-pink-400' : 'text-zinc-500'}`} />
               <span>Perfil</span>
             </Link>
           </div>

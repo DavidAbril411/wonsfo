@@ -21,6 +21,14 @@ export const metadata: Metadata = {
   description: 'Chatea gratis con personajes virtuales de inteligencia artificial en español. Explora fantasías, roleplay personalizado y avatares realistas sin límites.',
   keywords: ['chat ia nsfw', 'roleplay ia', 'novia virtual gratis', 'personajes ia español', 'wonsfo', 'inteligencia artificial nsfw'],
   metadataBase: new URL('https://wonsfo.com'),
+  icons: {
+    icon: [
+      { url: '/logo.jpg', sizes: 'any' },
+      { url: '/logo.jpg', type: 'image/jpeg' }
+    ],
+    shortcut: '/logo.jpg',
+    apple: '/logo.jpg',
+  },
   openGraph: {
     title: 'Wonsfo - Chat de IA NSFW y Roleplay Interactivo',
     description: 'Chatea con personajes virtuales e IA personalizada en español. Roleplay sin censura.',

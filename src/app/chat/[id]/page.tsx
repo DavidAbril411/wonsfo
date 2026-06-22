@@ -243,7 +243,7 @@ export default function ChatPage() {
   const isLockMessage = (text: string) => text.includes('🔒');
 
   return (
-    <div className="flex flex-1 flex-col bg-zinc-950 h-[calc(100vh-56px)] justify-between font-sans">
+    <div className="flex flex-1 flex-col bg-zinc-950 h-[calc(100dvh-56px)] justify-between font-sans">
       {/* Header del Chat */}
       <div className="border-b border-zinc-850 bg-zinc-900/10 px-4 py-3 sm:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -307,22 +307,22 @@ export default function ChatPage() {
                 key={msg.id} 
                 className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed border ${
+                <div className={`max-w-[85%] px-4 py-3 text-sm leading-relaxed border ${
                   isUser 
-                    ? 'bg-zinc-900 border-zinc-800 text-zinc-150' 
+                    ? 'bg-zinc-900 border-zinc-800 text-zinc-100 rounded-2xl rounded-tr-none shadow-sm' 
                     : locked 
-                    ? 'bg-red-950/10 border-red-900/40 text-red-300'
-                    : 'bg-transparent border-transparent text-zinc-200'
+                    ? 'bg-pink-950/15 border-pink-900/40 text-pink-300 rounded-2xl rounded-tl-none shadow-sm'
+                    : 'bg-purple-950/10 border border-purple-900/25 text-zinc-100 rounded-2xl rounded-tl-none shadow-[0_2px_8px_rgba(139,92,246,0.02)]'
                 }`}>
                   {/* Avatar miniatura para el bot si no es el usuario */}
                   {!isUser && !locked && (
-                    <div className="text-[10px] font-bold text-zinc-500 mb-1 tracking-tight">
+                    <div className="text-[10px] font-bold text-purple-400/80 mb-1.5 tracking-tight uppercase">
                       {character.name}
                     </div>
                   )}
 
                   {/* Texto formateado */}
-                  <div className="whitespace-pre-line">
+                  <div className="whitespace-pre-line font-medium">
                     {renderFormattedText(msg.text)}
                   </div>
                 </div>
@@ -333,13 +333,13 @@ export default function ChatPage() {
           {/* Mensaje en Streaming activo */}
           {isStreaming && streamedText && (
             <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-xl px-4 py-3 text-sm leading-relaxed bg-transparent border-transparent text-zinc-200">
-                <div className="text-[10px] font-bold text-zinc-500 mb-1 tracking-tight">
+              <div className="max-w-[85%] px-4 py-3 text-sm leading-relaxed bg-purple-950/10 border border-purple-900/25 text-zinc-100 rounded-2xl rounded-tl-none shadow-[0_2px_8px_rgba(139,92,246,0.02)]">
+                <div className="text-[10px] font-bold text-purple-400/80 mb-1.5 tracking-tight uppercase">
                   {character.name}
                 </div>
-                <div className="whitespace-pre-line">
+                <div className="whitespace-pre-line font-medium">
                   {renderFormattedText(streamedText)}
-                  <span className="inline-block h-4 w-1.5 ml-0.5 bg-zinc-400 animate-pulse"></span>
+                  <span className="inline-block h-4 w-1.5 ml-0.5 bg-pink-400 animate-pulse"></span>
                 </div>
               </div>
             </div>
@@ -350,41 +350,42 @@ export default function ChatPage() {
       </div>
 
       {/* Input de Mensajes */}
-      <div className="border-t border-zinc-850 p-4 bg-zinc-900/5">
+      <div className="border-t border-zinc-900/80 p-4 bg-zinc-950/50 backdrop-blur-xs">
         <div className="max-w-3xl mx-auto">
           {/* Si el último mensaje es el paywall del cliffhanger, mostramos advertencia y bloqueamos input */}
           {messages.length > 0 && isLockMessage(messages[messages.length - 1].text) ? (
-            <div className="rounded-lg border border-red-900/30 bg-red-950/15 p-4 text-center">
-              <p className="text-sm font-semibold text-red-400 flex items-center justify-center gap-1.5">
-                <ShieldAlert className="h-4 w-4" />
+            <div className="rounded-2xl border border-pink-900/40 bg-pink-950/15 p-5 text-center shadow-[0_0_15px_rgba(236,72,153,0.05)]">
+              <p className="text-sm font-semibold text-pink-400 flex items-center justify-center gap-1.5">
+                <ShieldAlert className="h-4 w-4 text-pink-400" />
                 Se requiere Cuenta Premium
               </p>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Has alcanzado el clímax narrativo. Puedes activar el simulador Premium en tu perfil para continuar chateando.
+              <p className="text-xs text-zinc-400 mt-2 leading-relaxed max-w-md mx-auto">
+                Has alcanzado el clímax narrativo. Puedes activar el simulador Premium en tu perfil para continuar chateando con {character.name}.
               </p>
               <button
                 onClick={() => router.push('/profile')}
-                className="mt-3.5 inline-flex items-center gap-1 rounded bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-950 hover:bg-zinc-200 transition-colors"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-neon-brand text-zinc-50 px-4 py-2 text-xs font-bold shadow-[0_0_10px_rgba(236,72,153,0.2)] hover:opacity-90 transition-all cursor-pointer"
               >
+                <Sparkles className="h-3 w-3 fill-zinc-50" />
                 Activar Premium en Perfil
               </button>
             </div>
           ) : (
-            <form onSubmit={handleSendMessage} className="flex gap-2">
+            <form onSubmit={handleSendMessage} className="flex gap-2.5 items-center">
               <input
                 type="text"
                 disabled={isStreaming}
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={`Envía un mensaje a ${character.name}...`}
-                className="block flex-1 rounded-md border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-500 focus:outline-none focus:ring-0 text-base transition-colors disabled:opacity-50"
+                className="block flex-1 rounded-full border border-zinc-800 bg-zinc-900/40 px-5 py-3 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500/50 focus:outline-hidden focus:ring-1 focus:ring-pink-500/20 text-base transition-all disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={isStreaming || !inputText.trim()}
-                className="inline-flex items-center justify-center rounded-md bg-zinc-50 p-2.5 text-zinc-950 hover:bg-zinc-200 disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                className="inline-flex items-center justify-center rounded-full bg-neon-brand p-3 text-zinc-50 shadow-[0_0_10px_rgba(236,72,153,0.25)] hover:opacity-95 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 cursor-pointer"
               >
-                <Send className="h-4 w-4" />
+                <Send className="h-4 w-4 fill-zinc-50" />
               </button>
             </form>
           )}

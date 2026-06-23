@@ -259,8 +259,13 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    // Usar seedream5 (Seeddream 5.0 Lite) que acepta imágenes de entrada (mejor relación calidad/precio)
+    const activeModel = 'seedream5';
+    let pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+
+    if (character.avatar_url) {
+      pollinationsUrl += `&image=${encodeURIComponent(character.avatar_url)}`;
+    }
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {

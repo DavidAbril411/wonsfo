@@ -234,7 +234,7 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${openrouterApiKey}`
       },
       body: JSON.stringify({
-        model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
+        model: 'sao10k/l3-lunaris-8b',
         messages: [{ role: 'user', content: openRouterPrompt }],
         temperature: 0.7
       })
@@ -293,10 +293,9 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Por defecto intentamos usar los modelos Pro de calidad premium:
-    // - Para Estilo Anime: 'grok-imagine-pro' (~0.07 pollen/imagen, calidad de ilustración inmejorable)
+    // - Para Estilo Anime: 'klein' (FLUX.2 Klein 4B, según preferencia del usuario)
     // - Para Estilo Real: 'wan-image-pro' (~0.03 pollen/imagen, fotorrealismo e integridad anatómica insuperables)
-    let activeModel = artStyle === 'Anime' ? 'grok-imagine-pro' : 'wan-image-pro';
+    let activeModel = artStyle === 'Anime' ? 'klein' : 'wan-image-pro';
     
     // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
     // directamente dentro de la descripción del prompt de texto.
@@ -320,8 +319,8 @@ export async function POST(request: NextRequest) {
 
     // Control de Fallback por Balance Insuficiente (402 Payment Required)
     if (imageResponse.status === 402) {
-      console.warn(`Balance insuficiente para el modelo Pro (${activeModel}). Realizando fallback al modelo económico...`);
-      activeModel = artStyle === 'Anime' ? 'klein' : 'flux';
+      console.warn(`Balance insuficiente para el modelo (${activeModel}). Realizando fallback al modelo económico...`);
+      activeModel = 'flux'; // Flux Schnell es el modelo gratuito/económico universal
       pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
       console.log("Llamando a Pollinations (Fallback) con URL:", pollinationsUrl);
       imageResponse = await fetch(pollinationsUrl, {

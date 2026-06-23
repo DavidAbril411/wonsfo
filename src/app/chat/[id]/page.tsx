@@ -25,6 +25,17 @@ export default function ChatPage() {
   const [streamedText, setStreamedText] = useState('');
   const [premiumModels, setPremiumModels] = useState('thedrummer/cydonia-24b-v4.1');
   const [showImageModal, setShowImageModal] = useState(false);
+  const [modalImageUrl, setModalImageUrl] = useState('');
+  const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+
+  useEffect(() => {
+    if (chatId) {
+      const storedModel = localStorage.getItem(`chat_model_${chatId}`);
+      if (storedModel) {
+        setPremiumModels(storedModel);
+      }
+    }
+  }, [chatId]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -214,6 +225,45 @@ export default function ChatPage() {
     }
   };
 
+  const handleGenerateScene = async () => {
+    if (isGeneratingScene || !user) return;
+    
+    setIsGeneratingScene(true);
+    
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+      
+      const response = await fetch('/api/character/generate-scene', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ chatId })
+      });
+      
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Error al generar la escena.');
+      }
+      
+      const data = await response.json();
+      
+      // Añadir la escena generada al feed de mensajes
+      setMessages(prev => [...prev, data.message]);
+      
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || 'Error al generar la escena con IA.');
+    } finally {
+      setIsGeneratingScene(false);
+    }
+  };
+
   // Renderizador básico de cursivas para el Roleplay (*acción*)
   const renderFormattedText = (text: string) => {
     if (!text) return null;
@@ -258,7 +308,7 @@ export default function ChatPage() {
           <img
             src={character.avatar_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop'}
             alt={character.name}
-            onClick={() => setShowImageModal(true)}
+            onClick={() => { setModalImageUrl(character.avatar_url); setShowImageModal(true); }}
             className="h-9 w-9 rounded-lg object-cover border border-zinc-800 cursor-pointer hover:border-pink-500/50 transition-all duration-200"
             title="Ver imagen en grande"
           />
@@ -287,7 +337,11 @@ export default function ChatPage() {
             </span>
             <select
               value={premiumModels}
-              onChange={(e) => setPremiumModels(e.target.value)}
+              onChange={(e) => {
+                const selected = e.target.value;
+                setPremiumModels(selected);
+                localStorage.setItem(`chat_model_${chatId}`, selected);
+              }}
               className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
             >
               <option value="thedrummer/cydonia-24b-v4.1">Cydonia 24B (RP Diario)</option>
@@ -305,12 +359,19 @@ export default function ChatPage() {
             const isUser = msg.sender === 'user';
             const locked = isLockMessage(msg.text);
             
+            const isImage = msg.text.startsWith('![Escena](');
+            let imageUrl = '';
+            if (isImage) {
+              const match = msg.text.match(/\!\[Escena\]\((.*?)\)/);
+              if (match) imageUrl = match[1];
+            }
+
             return (
               <div 
                 key={msg.id} 
                 className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[85%] px-4 py-3 text-sm leading-relaxed border ${
+                <div className={`max-w-[85%] ${isImage ? 'p-1.5' : 'px-4 py-3'} text-sm leading-relaxed border ${
                   isUser 
                     ? 'bg-zinc-900 border-zinc-800 text-zinc-100 rounded-2xl rounded-tr-none shadow-sm' 
                     : locked 
@@ -319,15 +380,32 @@ export default function ChatPage() {
                 }`}>
                   {/* Avatar miniatura para el bot si no es el usuario */}
                   {!isUser && !locked && (
-                    <div className="text-[10px] font-bold text-purple-400/80 mb-1.5 tracking-tight uppercase">
+                    <div className="text-[10px] font-bold text-purple-400/80 mb-1.5 px-2 tracking-tight uppercase">
                       {character.name}
                     </div>
                   )}
 
-                  {/* Texto formateado */}
-                  <div className="whitespace-pre-line font-medium">
-                    {renderFormattedText(msg.text)}
-                  </div>
+                  {/* Texto formateado o Imagen */}
+                  {isImage ? (
+                    <div className="flex flex-col items-center">
+                      <img 
+                        src={imageUrl} 
+                        alt="Escena generada" 
+                        className="rounded-xl max-h-[350px] max-w-full object-contain cursor-pointer border border-zinc-850 hover:border-pink-500/30 transition-colors"
+                        onClick={() => {
+                          setModalImageUrl(imageUrl);
+                          setShowImageModal(true);
+                        }}
+                      />
+                      <span className="text-[10px] text-zinc-500 mt-1.5 px-2 pb-1 font-semibold italic flex items-center gap-1">
+                        📸 Escena generada por IA (Clic para ampliar)
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="whitespace-pre-line font-medium">
+                      {renderFormattedText(msg.text)}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -413,14 +491,16 @@ export default function ChatPage() {
               ✕
             </button>
             <img
-              src={character.avatar_url}
+              src={modalImageUrl || character.avatar_url}
               alt={character.name}
               className="max-h-[60vh] max-w-full rounded-2xl object-contain border border-zinc-850"
             />
             <div className="mt-4 text-center">
               <h3 className="text-lg font-black text-zinc-50">{character.name}</h3>
               <p className="text-xs text-zinc-400 mt-1.5 px-2 leading-relaxed">
-                {character.personality_description}
+                {modalImageUrl === character.avatar_url 
+                  ? character.personality_description 
+                  : "Escena generada por IA basada en tu chat."}
               </p>
             </div>
           </div>

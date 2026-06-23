@@ -141,20 +141,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 8. Construir el contexto del chat (Historial de Mensajes)
-    // Obtenemos los últimos 15 mensajes del chat para contexto inmediato
+    // Obtenemos los últimos 25 mensajes para contexto inmediato
     const { data: chatHistory, error: historyError } = await supabaseAdmin
       .from('chat_messages')
       .select('sender, text')
       .eq('chat_id', chatId)
-      .order('created_at', { ascending: true })
-      .limit(15);
+      .order('created_at', { ascending: false })
+      .limit(25);
 
     if (historyError) {
       console.error('Error fetching chat history:', historyError);
     }
 
-    // RAG (Memoria de Largo Plazo): En producción se realizaría una búsqueda de pgvector aquí.
-    // Para simplificar el MVP, confiamos en la ventana deslizante del historial.
+    // Reversar en memoria para mantener orden cronológico correcto (pasado -> presente)
+    const chronologicalHistory = chatHistory ? [...chatHistory].reverse() : [];
 
     // 9. Prompt Engineering e Inyección de Directivas Dialectales y de Ritmo (Clímax)
     let climaxDirective = '';
@@ -203,12 +203,15 @@ export async function POST(request: NextRequest) {
       { role: 'system', content: systemPrompt }
     ];
 
-    if (chatHistory) {
-      chatHistory.forEach((msg) => {
-        apiMessages.push({
-          role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: msg.text
-        });
+    if (chronologicalHistory) {
+      chronologicalHistory.forEach((msg) => {
+        // Excluir mensajes que contienen imágenes generadas
+        if (!msg.text.startsWith('![Escena]')) {
+          apiMessages.push({
+            role: msg.sender === 'user' ? 'user' : 'assistant',
+            content: msg.text
+          });
+        }
       });
     }
 

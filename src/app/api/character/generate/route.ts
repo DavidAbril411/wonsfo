@@ -312,13 +312,31 @@ export async function POST(request: NextRequest) {
       finalAvatarUrl = `data:image/jpeg;base64,${base64Image}`;
     }
 
+    const metadata = {
+      gender,
+      artStyle,
+      age,
+      build,
+      eyes,
+      hair,
+      hairLength,
+      skin,
+      ethnicity,
+      breastSize,
+      waistButt,
+      muscleAmount,
+      beardStyle,
+      personality
+    };
+    const metadataString = `\n\n<!-- METADATA: ${JSON.stringify(metadata)} -->`;
+
     // 6. Registrar en Supabase
     const { data: newCharacter, error: insertError } = await supabaseAdmin
       .from('characters')
       .insert({
         user_id: user.id,
         name,
-        personality_description: generatedDescription,
+        personality_description: generatedDescription + metadataString,
         initial_greeting: generatedGreeting,
         avatar_url: finalAvatarUrl,
         default_language: 'es',

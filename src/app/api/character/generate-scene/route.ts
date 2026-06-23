@@ -144,21 +144,28 @@ export async function POST(request: NextRequest) {
 
     const character = chat.character;
 
-    // 3. Obtener el último mensaje de la conversación
+    // 3. Obtener el último mensaje de la conversación (obtenemos los últimos 15 mensajes para tener suficiente contexto de texto y saltar imágenes)
     const { data: lastMessages, error: msgError } = await supabaseAdmin
       .from('chat_messages')
       .select('sender, text')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: false })
-      .limit(3);
+      .limit(15);
 
     if (msgError || !lastMessages || lastMessages.length === 0) {
       return NextResponse.json({ error: 'No hay mensajes en este chat para generar una escena.' }, { status: 400 });
     }
 
-    // Encontrar el último mensaje del asistente e información del usuario
-    const lastAssistantText = lastMessages.find(m => m.sender === 'assistant')?.text || '';
-    const lastUserText = lastMessages.find(m => m.sender === 'user')?.text || '';
+    // Filtrar mensajes que correspondan a imágenes o escenas generadas previamente
+    const textMessages = lastMessages.filter(m => !m.text.trim().startsWith('![') && !m.text.includes('![Escena]'));
+
+    if (textMessages.length === 0) {
+      return NextResponse.json({ error: 'No hay mensajes de texto en este chat para generar una escena.' }, { status: 400 });
+    }
+
+    // Encontrar el último mensaje del asistente e información del usuario (los más recientes dentro de los mensajes de texto)
+    const lastAssistantText = textMessages.find(m => m.sender === 'assistant')?.text || '';
+    const lastUserText = textMessages.find(m => m.sender === 'user')?.text || '';
 
     // 4. Intentar extraer metadatos del personaje
     const metadataMatch = character.personality_description.match(/<!-- METADATA: (\{.*?\}) -->/);
@@ -200,8 +207,12 @@ export async function POST(request: NextRequest) {
       `Dada la última interacción en un juego de rol interactivo en español:\n` +
       `Mensaje del usuario: "${lastUserText}"\n` +
       `Mensaje del personaje (${character.name}): "${lastAssistantText}"\n\n` +
-      `Genera una descripción física muy corta en inglés (3 a 7 palabras) sobre lo que está haciendo el personaje de IA (${character.name}), su pose y lo que ocurre en esta escena. Describe la acción o el estado de vestimenta/desnudez exacto que se describe en la conversación.\n\n` +
-      `Debes retornar ÚNICAMENTE un objeto JSON válido con la propiedad "scene_description_en" (ejemplo: { "scene_description_en": "nude, sitting close on a dark bed" }). Sin texto adicional ni formato de código markdown.`;
+      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (por ejemplo, el vestido, la falda o ropa específica descrita en los mensajes) y el entorno/fondo detallado donde se encuentra (por ejemplo, "standing behind a library wooden desk with a spilled cup of coffee nearby, warm lighting, bookshelves filled with books in the background").\n` +
+      `REGLAS:\n` +
+      `- Identifica y describe con precisión la vestimenta descrita en el mensaje del personaje o del usuario (por ejemplo, si menciona un vestido gris, pon "wearing a grey dress").\n` +
+      `- Describe el fondo y el entorno con detalles contextuales ricos (ej. muebles, objetos, iluminación ambiental, paredes). Evita fondos planos o negros.\n` +
+      `- Sé muy específico con la pose física del personaje y su interacción con los objetos del entorno (ej. "almost knocking over a coffee cup").\n\n` +
+      `Debes retornar ÚNICAMENTE un objeto JSON válido con la propiedad "scene_description_en" (ejemplo: { "scene_description_en": "wearing a grey dress, standing startled behind a library wooden desk, a spilled coffee cup on the desk, warm light, bookshelves in background" }). Sin texto adicional ni formato de código markdown.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -252,9 +263,9 @@ export async function POST(request: NextRequest) {
     // 7. Construir prompt de la escena
     let imagePrompt = '';
     if (artStyle === 'Anime') {
-      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${sceneDescriptionEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, black background`;
+      imagePrompt = `${sceneDescriptionEn}, sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, vibrant colors, clean lines, high quality anime artwork, masterpiece`;
     } else {
-      imagePrompt = `sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${sceneDescriptionEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+      imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background`;
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;

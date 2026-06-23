@@ -12,6 +12,8 @@ function LoginPageContent() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [gender, setGender] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [isConfirmingOtp, setIsConfirmingOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -37,7 +39,7 @@ function LoginPageContent() {
     setSuccessMsg('');
     setLoading(true);
 
-    if (!email || !password) {
+    if (!email || !password || (isSignUp && (!displayName || !gender))) {
       setErrorMsg('Por favor completa todos los campos.');
       setLoading(false);
       return;
@@ -47,7 +49,13 @@ function LoginPageContent() {
       if (isSignUp) {
         const { data, error } = await supabase.auth.signUp({
           email,
-          password
+          password,
+          options: {
+            data: {
+              display_name: displayName,
+              gender: gender
+            }
+          }
         });
         if (error) throw error;
         
@@ -254,6 +262,49 @@ function LoginPageContent() {
         ) : (
           <>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {isSignUp && (
+                <>
+                  <div>
+                    <label htmlFor="displayName" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+                      Nombre Real (como te llamarán los personajes)
+                    </label>
+                    <div className="mt-2">
+                      <input
+                        id="displayName"
+                        name="displayName"
+                        type="text"
+                        required
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-150 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
+                        placeholder="ej: Lucas, Sofía"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label htmlFor="gender" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+                      Género (para adaptar pronombres en el chat)
+                    </label>
+                    <div className="mt-2">
+                      <select
+                        id="gender"
+                        name="gender"
+                        required
+                        value={gender}
+                        onChange={(e) => setGender(e.target.value)}
+                        className="block w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-zinc-150 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
+                      >
+                        <option value="">Selecciona tu género</option>
+                        <option value="Hombre">Hombre (pronombres masculinos)</option>
+                        <option value="Mujer">Mujer (pronombres femeninos)</option>
+                        <option value="Trans">Trans (pronombres neutros/femeninos)</option>
+                      </select>
+                    </div>
+                  </div>
+                </>
+              )}
+
               <div>
                 <label htmlFor="email" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
                   Correo electrónico

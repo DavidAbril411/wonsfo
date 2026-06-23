@@ -53,14 +53,16 @@ export async function POST(request: NextRequest) {
     const character = chat.character;
     const country = character.default_country || 'Neutro';
 
-    // 3. Obtener el perfil del usuario para validar si es Premium
+    // 3. Obtener el perfil del usuario para validar si es Premium e info del usuario
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('is_premium')
+      .select('is_premium, display_name, gender')
       .eq('id', user.id)
       .single();
 
     const isPremium = profileError ? false : !!profile?.is_premium;
+    const userDisplayName = profile?.display_name || '';
+    const userGender = profile?.gender || '';
 
     // 5. Calcular la tensión acumulada histórica del chat y cantidad de mensajes
     const { data: pastMessages, error: msgError } = await supabaseAdmin
@@ -185,7 +187,26 @@ export async function POST(request: NextRequest) {
 
      let systemPrompt = 
       `Eres ${character.name}. Mantén estrictamente tu personaje en todo momento, respondiendo en primera persona.\n` +
-      `Personalidad e Historia:\n${character.personality_description}\n\n` +
+      `Personalidad e Historia:\n${character.personality_description}\n\n`;
+
+     if (userDisplayName || userGender) {
+       let userInstruction = `[INFORMACIÓN DEL USUARIO DE CHAT (INTERACTOR):\n`;
+       if (userDisplayName) {
+         userInstruction += `- Te debes dirigir al usuario por su nombre real: "${userDisplayName}". Úsalo de forma natural en los diálogos cuando corresponda.\n`;
+       }
+       if (userGender) {
+         const pronouns = userGender === 'Hombre' 
+           ? 'masculinos (ej: "lindo", "atrevido", "cansado", "divertido", "él", "un chico")' 
+           : userGender === 'Mujer' 
+             ? 'femeninos (ej: "linda", "atrevida", "cansada", "divertida", "ella", "una chica")' 
+             : 'neutros o femeninos';
+         userInstruction += `- El género del usuario es: ${userGender}. Debes adaptar estrictamente tus adjetivos, pronombres y concordancia gramatical al hablarle utilizando pronombres ${pronouns}.\n`;
+       }
+       userInstruction += `]\n\n`;
+       systemPrompt += userInstruction;
+     }
+
+     systemPrompt +=
       `- FORMATO ESTRICTO DE DIÁLOGOS Y ACCIONES (CRÍTICO):\n` +
       `  1. Las acciones, gestos, pensamientos y escenario físico de ${character.name} DEBEN ir siempre escritos entre asteriscos (ej: *me cruzo de brazos y desvío la mirada*).\n` +
       `  2. Las palabras habladas y diálogos de ${character.name} DEBEN ir siempre escritos entre comillas y NUNCA llevar asteriscos (ej: "No pensés que te hice un favor, boludo."). NUNCA uses comillas para acciones ni asteriscos para diálogos hablados.\n` +

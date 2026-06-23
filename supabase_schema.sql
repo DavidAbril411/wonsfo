@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   username TEXT UNIQUE,
-  is_premium BOOLEAN DEFAULT FALSE
+  is_premium BOOLEAN DEFAULT FALSE,
+  display_name TEXT,
+  gender TEXT
 );
 
 -- Habilitar RLS en perfiles
@@ -22,8 +24,14 @@ CREATE POLICY "Los usuarios pueden actualizar su propio perfil"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, is_premium)
-  VALUES (new.id, split_part(new.email, '@', 1), FALSE);
+  INSERT INTO public.profiles (id, username, is_premium, display_name, gender)
+  VALUES (
+    new.id, 
+    split_part(new.email, '@', 1), 
+    FALSE,
+    coalesce(new.raw_user_meta_data->>'display_name', ''),
+    coalesce(new.raw_user_meta_data->>'gender', '')
+  );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

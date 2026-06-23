@@ -9,6 +9,8 @@ export default function ProfilePage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [username, setUsername] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [gender, setGender] = useState('');
   const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -32,6 +34,8 @@ export default function ProfilePage() {
 
       if (profile) {
         setUsername(profile.username || '');
+        setDisplayName(profile.display_name || '');
+        setGender(profile.gender || '');
         setIsPremium(!!profile.is_premium);
       }
       setLoading(false);
@@ -51,6 +55,8 @@ export default function ProfilePage() {
         .from('profiles')
         .update({
           username,
+          display_name: displayName,
+          gender,
           is_premium: isPremium,
           updated_at: new Date().toISOString()
         })
@@ -119,9 +125,40 @@ export default function ProfilePage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
                 placeholder="Nombre de usuario"
               />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="displayName" className="block text-xs text-zinc-400 font-medium">Nombre Real (con el que te llamarán los personajes)</label>
+            <div className="mt-2">
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/50 px-3.5 py-2.5 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
+                placeholder="Tu nombre (ej: Lucas, Sofía)"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="gender" className="block text-xs text-zinc-400 font-medium">Género (para adaptar pronombres en los diálogos)</label>
+            <div className="mt-2">
+              <select
+                id="gender"
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900 px-3.5 py-2.5 text-zinc-100 focus:border-pink-500 focus:outline-none focus:ring-0 text-base transition-colors"
+              >
+                <option value="">No especificado / Neutro</option>
+                <option value="Hombre">Hombre (pronombres masculinos)</option>
+                <option value="Mujer">Mujer (pronombres femeninos)</option>
+                <option value="Trans">Trans (pronombres neutros/femeninos)</option>
+              </select>
             </div>
           </div>
         </div>

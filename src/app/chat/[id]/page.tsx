@@ -26,6 +26,7 @@ export default function ChatPage() {
   const [premiumModels, setPremiumModels] = useState('thedrummer/cydonia-24b-v4.1');
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
+  const [isZoomed, setIsZoomed] = useState(false);
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
 
   // Estados de edición y control de chat
@@ -864,30 +865,37 @@ export default function ChatPage() {
       {showImageModal && character && (
         <div 
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md p-4 transition-all duration-300 animate-fadeIn"
-          onClick={() => setShowImageModal(false)}
+          onClick={() => { setShowImageModal(false); setIsZoomed(false); }}
         >
           <div 
-            className="relative max-w-md w-full flex flex-col items-center p-4 bg-zinc-950/70 border border-zinc-850/60 rounded-3xl shadow-[0_0_50px_rgba(236,72,153,0.15)]"
+            className="relative max-w-4xl w-full flex flex-col items-center p-4 bg-zinc-950/70 border border-zinc-850/60 rounded-3xl shadow-[0_0_50px_rgba(236,72,153,0.15)]"
             onClick={(e) => e.stopPropagation()} // Evitar cerrar al hacer click dentro
           >
             {/* Botón de cerrar */}
             <button 
-              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-50 font-bold bg-zinc-900/80 border border-zinc-800 rounded-full h-8 w-8 flex items-center justify-center cursor-pointer transition-colors"
-              onClick={() => setShowImageModal(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-zinc-50 font-bold bg-zinc-900/80 border border-zinc-800 rounded-full h-8 w-8 flex items-center justify-center cursor-pointer transition-colors z-10"
+              onClick={() => { setShowImageModal(false); setIsZoomed(false); }}
             >
               ✕
             </button>
-            <img
-              src={modalImageUrl || character.avatar_url}
-              alt={character.name}
-              className="max-h-[60vh] max-w-full rounded-2xl object-contain border border-zinc-850"
-            />
+            <div className="relative w-full overflow-auto max-h-[70vh] flex items-center justify-center rounded-2xl border border-zinc-850 bg-zinc-950/20">
+              <img
+                src={modalImageUrl || character.avatar_url}
+                alt={character.name}
+                className={`transition-all duration-300 origin-center ${
+                  isZoomed 
+                    ? 'cursor-zoom-out max-h-[140vh] max-w-[140vw] scale-150 my-16 mx-16 rounded-xl' 
+                    : 'cursor-zoom-in max-h-[65vh] max-w-full object-contain rounded-2xl'
+                }`}
+                onClick={() => setIsZoomed(!isZoomed)}
+              />
+            </div>
             <div className="mt-4 text-center">
               <h3 className="text-lg font-black text-zinc-50">{character.name}</h3>
               <p className="text-xs text-zinc-400 mt-1.5 px-2 leading-relaxed">
                 {modalImageUrl === character.avatar_url 
                   ? character.personality_description.replace(/<!-- METADATA: (\{.*?\}) -->/, '')
-                  : "Escena generada por IA basada en tu chat."}
+                  : "Escena generada por IA basada en tu chat. Clic en la imagen para ampliar/reducir."}
               </p>
             </div>
           </div>

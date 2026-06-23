@@ -39,6 +39,23 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
+## 3. Lógica de Ritmo Dinámico y Mitigación del Enojo Persistente (Fase 5.4)
+
+* **Diagnóstico de Bloqueo de Pacing (Enojo Perpetuo):**
+  * La directiva de "Persistencia del Enojo" exigía de forma absoluta que la IA permanezca distante e indignada tras un avance prematuro, pero no definía un mecanismo de superación o perdón. Esto provocaba que, incluso después de disculparse y avanzar muchos mensajes, la IA continuara fría y defensiva.
+* **Soluciones Narrativas y Mecánicas:**
+  1. **Instrucción de Perdón y Receptividad:** Actualizamos las reglas del prompt en `route.ts` para indicarle a la IA de manera explícita que, si el usuario se disculpa y continúa insistiendo educadamente durante más de 3 o 4 mensajes, debe empezar a ablandar su postura de forma progresiva, volviéndose más receptiva y facilitando la reconciliación.
+  2. **Directivas Dinámicas por Etapa:** Inyectamos dinámicamente en el prompt del sistema la etapa actual de la conversación según la cantidad de mensajes (`messageCount`):
+     * **Etapa Inicial (< 10 mensajes):** Límites firmes, resistencia a insinuaciones precipitadas.
+     * **Etapa Intermedia (10 a 20 mensajes):** Complicidad moderada y coqueteo sutil si hay respeto.
+     * **Etapa Avanzada (>= 20 mensajes):** Confianza plena construida; alta receptividad, actitud coqueta y atrevida para facilitar la intimidad física.
+  3. **Escalamiento de Puntuación de Clímax (`climax-engine.ts`):** Rediseñamos el motor de puntuación para que se adapte al estado de la relación:
+     * **Fase Temprana (< 10):** Penalización estricta del 90% en palabras/acciones físicas (multiplicador 0.1x) para evitar avances inmediatos.
+     * **Fase Intermedia (< 20):** Penalización moderada del 50% (multiplicador 0.5x).
+     * **Fase Avanzada (>= 20):** Impulso e incremento del 50% (multiplicador 1.5x) para palabras físicas y 30% (1.3x) para términos íntimos tradicionales, facilitando que el usuario alcance el clímax narrativo rápidamente una vez establecida la confianza.
+
+---
+
 ## 3. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**

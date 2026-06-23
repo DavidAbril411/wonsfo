@@ -80,15 +80,26 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[], mess
     // Usar regex para buscar límites de palabra
     const regex = new RegExp(`\\b${normalizedKw}[a-z]*\\b`, 'i');
     if (regex.test(normalizedText)) {
-      // Penalizar palabras físicas/sexuales si la conversación está empezando (menos de 12 mensajes)
       const highPhysicalKws = ['desnud', 'gemir', 'gemid', 'excitad', 'hacer el amor', 'tocar', 'toca', 'acariciar', 'beso', 'besar', 'sexo', 'coger', 'placer'];
       const isHighPhysical = highPhysicalKws.some(pk => normalizedKw.includes(pk) || pk.includes(normalizedKw));
-      
-      if (isHighPhysical && messageCount < 12) {
-        // Reducir la aportación al clímax en un 85% para castigar la premura y forzar slow burn
-        keywordScore += score * 0.15;
+      if (isHighPhysical) {
+        if (messageCount < 10) {
+          // Penalizar fuertemente al principio (10%) para forzar slow burn
+          keywordScore += score * 0.1;
+        } else if (messageCount < 20) {
+          // Penalización moderada (50%)
+          keywordScore += score * 0.5;
+        } else {
+          // Facilitar el avance avanzado (150%)
+          keywordScore += score * 1.5;
+        }
       } else {
-        keywordScore += score;
+        // Para otras palabras íntimas no físicas
+        if (messageCount >= 20) {
+          keywordScore += score * 1.3;
+        } else {
+          keywordScore += score;
+        }
       }
     }
   }
@@ -99,9 +110,12 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[], mess
     const similarity = cosineSimilarity(embedding, CLIMAX_ANCHOR_VECTOR);
     // Escalar la similitud del coseno (-1 a 1) a un score positivo
     let tempSemantic = Math.max(0, similarity) * 50;
-    if (messageCount < 12) {
-      // Reducir la similitud semántica en un 70% si es prematura
-      tempSemantic *= 0.3;
+    if (messageCount < 10) {
+      tempSemantic *= 0.1;
+    } else if (messageCount < 20) {
+      tempSemantic *= 0.5;
+    } else {
+      tempSemantic *= 1.5;
     }
     semanticScore = tempSemantic;
   }

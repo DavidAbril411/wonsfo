@@ -287,11 +287,57 @@ export async function POST(request: NextRequest) {
       enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
     }
 
+    const siliconflowApiKey = process.env.SILICONFLOW_API_KEY;
     const atlasCloudApiKey = process.env.ATLAS_CLOUD_API_KEY;
     const airforceApiKey = process.env.AIRFORCE_API_KEY;
     let success = false;
 
-    if (atlasCloudApiKey) {
+    if (siliconflowApiKey) {
+      try {
+        const sfModel = artStyle === 'Anime'
+          ? (process.env.SILICONFLOW_ANIME_MODEL || 'black-forest-labs/FLUX.1-schnell')
+          : (process.env.SILICONFLOW_REAL_MODEL || 'black-forest-labs/FLUX.1-dev');
+
+        console.log(`Llamando a SiliconFlow con modelo: ${sfModel}`);
+        const sfResponse = await fetch('https://api.siliconflow.com/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${siliconflowApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: sfModel,
+            prompt: enhancedPrompt,
+            image_size: '1024x1024'
+          })
+        });
+
+        if (!sfResponse.ok) {
+          const errText = await sfResponse.text();
+          throw new Error(`SiliconFlow API error (${sfResponse.status}): ${errText}`);
+        }
+
+        const resultJson = await sfResponse.json();
+        const imageUrl = resultJson.data?.[0]?.url;
+        if (!imageUrl) {
+          throw new Error(`SiliconFlow response did not contain image URL: ${JSON.stringify(resultJson)}`);
+        }
+
+        const fetchImage = await fetch(imageUrl);
+        if (!fetchImage.ok) {
+          throw new Error(`Failed to fetch image from SiliconFlow: ${fetchImage.statusText}`);
+        }
+
+        const imageArrayBuffer = await fetchImage.arrayBuffer();
+        imageBuffer = Buffer.from(imageArrayBuffer);
+        success = true;
+        console.log("Generación exitosa con SiliconFlow!");
+      } catch (e: any) {
+        console.error("Error en SiliconFlow, realizando fallback...", e);
+      }
+    }
+
+    if (!success && atlasCloudApiKey) {
       try {
         const atlasModel = artStyle === 'Anime'
           ? (process.env.ATLAS_CLOUD_ANIME_MODEL || 'black-forest-labs/flux-schnell')

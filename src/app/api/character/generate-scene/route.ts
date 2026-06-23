@@ -162,13 +162,16 @@ export async function POST(request: NextRequest) {
 
     // 4. Intentar extraer metadatos del personaje
     const metadataMatch = character.personality_description.match(/<!-- METADATA: (\{.*?\}) -->/);
+    if (!metadataMatch) {
+      return NextResponse.json({ error: 'Este personaje no tiene metadatos estructurados para generar escenas.' }, { status: 400 });
+    }
+
     let charMeta: any = {};
-    if (metadataMatch) {
-      try {
-        charMeta = JSON.parse(metadataMatch[1]);
-      } catch (e) {
-        console.error("Failed to parse metadata", e);
-      }
+    try {
+      charMeta = JSON.parse(metadataMatch[1]);
+    } catch (e) {
+      console.error("Failed to parse metadata", e);
+      return NextResponse.json({ error: 'Error al procesar los metadatos del personaje.' }, { status: 400 });
     }
 
     // Valores por defecto si no existen metadatos

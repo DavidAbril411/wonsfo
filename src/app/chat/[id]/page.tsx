@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Send, ArrowLeft, ShieldAlert, Sparkles, MapPin, Gauge } from 'lucide-react';
+import { Send, ArrowLeft, ShieldAlert, Sparkles, MapPin, Gauge, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -27,6 +27,10 @@ export default function ChatPage() {
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+
+  // Estados de edición y control de chat
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editInputText, setEditInputText] = useState('');
 
   useEffect(() => {
     if (chatId) {
@@ -269,6 +273,277 @@ export default function ChatPage() {
     }
   };
 
+  const startEditing = (msgId: string, text: string) => {
+    setEditingMessageId(msgId);
+    setEditInputText(text);
+  };
+
+  const saveEditedMessage = async (msgId: string, createdAt: string) => {
+    if (!editInputText.trim() || isStreaming || !user) return;
+
+    const newText = editInputText.trim();
+    setEditingMessageId(null);
+
+    if (!confirm('¿Editar este mensaje? Esto borrará todas las respuestas posteriores en la conversación.')) {
+      return;
+    }
+
+    try {
+      // 1. Eliminar el mensaje editado y todo lo posterior de la base de datos
+      const { error: deleteError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('chat_id', chatId)
+        .gte('created_at', createdAt);
+
+      if (deleteError) throw deleteError;
+
+      // 2. Actualizar estado local (quedar con los mensajes anteriores)
+      const msgIndex = messages.findIndex(m => m.id === msgId);
+      const keptMessages = messages.slice(0, msgIndex);
+      setMessages(keptMessages);
+
+      // 3. Iniciar el streaming enviando el nuevo texto
+      setIsStreaming(true);
+      setStreamedText('');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          chatId,
+          messageText: newText,
+          model: premiumModels
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al conectar con la API de streaming de chat.');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let bufferText = '';
+
+      if (!reader) return;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+
+            if (dataStr === '[DONE]') {
+              continue;
+            }
+
+            try {
+              const dataObj = JSON.parse(dataStr);
+              const content = dataObj.choices?.[0]?.delta?.content || '';
+              bufferText += content;
+              setStreamedText(bufferText);
+            } catch (e) {
+              // Omitir errores de JSON parciales
+            }
+          }
+        }
+      }
+
+      // 4. Recargar mensajes actualizados
+      const { data: freshMessages } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (freshMessages) {
+        setMessages(freshMessages);
+      }
+
+    } catch (err) {
+      console.error('Error during editing message:', err);
+      alert('Error de conexión al guardar el mensaje editado.');
+    } finally {
+      setIsStreaming(false);
+      setStreamedText('');
+    }
+  };
+
+  const handleRegenerate = async (assistantMsgId: string) => {
+    if (isStreaming || !user) return;
+
+    // 1. Encontrar el índice del mensaje del asistente
+    const assistantIndex = messages.findIndex(m => m.id === assistantMsgId);
+    if (assistantIndex === -1) return;
+
+    // 2. Encontrar el mensaje del usuario inmediatamente anterior
+    let userMsgIndex = -1;
+    for (let i = assistantIndex - 1; i >= 0; i--) {
+      if (messages[i].sender === 'user') {
+        userMsgIndex = i;
+        break;
+      }
+    }
+
+    if (userMsgIndex === -1) {
+      alert('No se encontró el mensaje del usuario anterior para regenerar la respuesta.');
+      return;
+    }
+
+    const userMsg = messages[userMsgIndex];
+
+    if (!confirm(`¿Regenerar la respuesta de ${character.name}?`)) {
+      return;
+    }
+
+    try {
+      // 3. Eliminar ambos mensajes (y cualquier mensaje posterior) de la base de datos
+      const { error: deleteError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('chat_id', chatId)
+        .gte('created_at', userMsg.created_at);
+
+      if (deleteError) throw deleteError;
+
+      // 4. Actualizar estado local (quedar con los mensajes anteriores al del usuario)
+      const keptMessages = messages.slice(0, userMsgIndex);
+      setMessages(keptMessages);
+
+      // 5. Iniciar la regeneración enviando el texto del usuario
+      setIsStreaming(true);
+      setStreamedText('');
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch('/api/chat/stream', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          chatId,
+          messageText: userMsg.text,
+          model: premiumModels
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al conectar con la API de streaming de chat.');
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let bufferText = '';
+
+      if (!reader) return;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+
+            if (dataStr === '[DONE]') {
+              continue;
+            }
+
+            try {
+              const dataObj = JSON.parse(dataStr);
+              const content = dataObj.choices?.[0]?.delta?.content || '';
+              bufferText += content;
+              setStreamedText(bufferText);
+            } catch (e) {
+              // Omitir errores de JSON parciales
+            }
+          }
+        }
+      }
+
+      // 6. Recargar mensajes actualizados
+      const { data: freshMessages } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (freshMessages) {
+        setMessages(freshMessages);
+      }
+
+    } catch (err) {
+      console.error('Error during regeneration:', err);
+      alert('Error de conexión al regenerar.');
+    } finally {
+      setIsStreaming(false);
+      setStreamedText('');
+    }
+  };
+
+  const handleDeleteImage = async (msgId: string) => {
+    if (!confirm('¿Seguro que deseas borrar esta escena del chat?')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('id', msgId);
+
+      if (error) throw error;
+
+      setMessages(prev => prev.filter(m => m.id !== msgId));
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      alert('Error al borrar la imagen del chat.');
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!confirm('¿Seguro que deseas borrar TODA la conversación? Esta acción no se puede deshacer.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .delete()
+        .eq('id', chatId);
+
+      if (error) throw error;
+
+      router.push('/');
+    } catch (err) {
+      console.error('Error deleting chat:', err);
+      alert('Error al borrar la conversación.');
+    }
+  };
+
   // Renderizador básico de cursivas para el Roleplay (*acción*)
   const renderFormattedText = (text: string) => {
     if (!text) return null;
@@ -333,33 +608,44 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Modelo Selector (Solo Premium) */}
-        {isPremium && (
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-zinc-500 font-semibold tracking-wide flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-zinc-400" />
-              MODELO:
-            </span>
-            <select
-              value={premiumModels}
-              onChange={async (e) => {
-                const selected = e.target.value;
-                setPremiumModels(selected);
-                localStorage.setItem(`chat_model_${chatId}`, selected);
-                // Persistir en base de datos
-                await supabase
-                  .from('chats')
-                  .update({ model: selected })
-                  .eq('id', chatId);
-              }}
-              className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
-            >
-              <option value="thedrummer/cydonia-24b-v4.1">Cydonia 24B (RP Diario)</option>
-              <option value="openai/gpt-oss-120b">GPT-OSS 120B (Inteligencia)</option>
-              <option value="sao10k/l3.3-euryale-70b">Euryale 70B (Descriptivo)</option>
-            </select>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          {/* Modelo Selector (Solo Premium) */}
+          {isPremium && (
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-zinc-500 font-semibold tracking-wide flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-zinc-400" />
+                MODELO:
+              </span>
+              <select
+                value={premiumModels}
+                onChange={async (e) => {
+                  const selected = e.target.value;
+                  setPremiumModels(selected);
+                  localStorage.setItem(`chat_model_${chatId}`, selected);
+                  // Persistir en base de datos
+                  await supabase
+                    .from('chats')
+                    .update({ model: selected })
+                    .eq('id', chatId);
+                }}
+                className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
+              >
+                <option value="thedrummer/cydonia-24b-v4.1">Cydonia 24B (RP Diario)</option>
+                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Inteligencia)</option>
+                <option value="sao10k/l3.3-euryale-70b">Euryale 70B (Descriptivo)</option>
+              </select>
+            </div>
+          )}
+
+          {/* Botón Borrar Conversación */}
+          <button
+            onClick={handleDeleteChat}
+            className="rounded-md p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-900 transition-colors"
+            title="Borrar conversación entera"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Feed de Conversación */}
@@ -376,11 +662,26 @@ export default function ChatPage() {
               if (match) imageUrl = match[1];
             }
 
+            const isLastMsg = messages[messages.length - 1]?.id === msg.id;
+
             return (
               <div 
                 key={msg.id} 
-                className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${isUser ? 'justify-end' : 'justify-start'} items-center gap-2 group`}
               >
+                {/* Botones de acción a la izquierda para mensajes del usuario */}
+                {isUser && !isStreaming && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={() => startEditing(msg.id, msg.text)}
+                      className="text-zinc-500 hover:text-zinc-300 p-1.5 rounded-md hover:bg-zinc-900 transition-colors"
+                      title="Editar mensaje"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <div className={`max-w-[85%] ${isImage ? 'p-1.5' : 'px-4 py-3'} text-sm leading-relaxed border ${
                   isUser 
                     ? 'bg-zinc-900 border-zinc-800 text-zinc-100 rounded-2xl rounded-tr-none shadow-sm' 
@@ -395,8 +696,31 @@ export default function ChatPage() {
                     </div>
                   )}
 
-                  {/* Texto formateado o Imagen */}
-                  {isImage ? (
+                  {/* Texto formateado, editor, o Imagen */}
+                  {editingMessageId === msg.id ? (
+                    <div className="flex flex-col gap-2 min-w-[220px]">
+                      <textarea
+                        value={editInputText}
+                        onChange={(e) => setEditInputText(e.target.value)}
+                        className="w-full bg-zinc-950 text-zinc-100 border border-zinc-850 rounded-xl p-2 text-sm focus:outline-hidden focus:border-pink-500/60"
+                        rows={3}
+                      />
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => setEditingMessageId(null)}
+                          className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded-lg hover:bg-zinc-950/65 transition-all"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => saveEditedMessage(msg.id, msg.created_at)}
+                          className="px-2.5 py-1 text-xs bg-pink-650 hover:bg-pink-700 text-zinc-50 rounded-lg transition-all font-bold"
+                        >
+                          Guardar
+                        </button>
+                      </div>
+                    </div>
+                  ) : isImage ? (
                     <div className="flex flex-col items-center">
                       <img 
                         src={imageUrl} 
@@ -417,6 +741,30 @@ export default function ChatPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Botones de acción a la derecha para mensajes del bot */}
+                {!isUser && !isStreaming && (
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    {!locked && !isImage && isLastMsg && (
+                      <button
+                        onClick={() => handleRegenerate(msg.id)}
+                        className="text-zinc-500 hover:text-zinc-300 p-1.5 rounded-md hover:bg-zinc-900 transition-colors"
+                        title="Regenerar respuesta"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    {isImage && (
+                      <button
+                        onClick={() => handleDeleteImage(msg.id)}
+                        className="text-zinc-500 hover:text-red-400 p-1.5 rounded-md hover:bg-zinc-900 transition-colors"
+                        title="Borrar imagen del chat"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -471,7 +819,7 @@ export default function ChatPage() {
                 placeholder={`Envía un mensaje a ${character.name}...`}
                 className="block flex-1 rounded-full border border-zinc-800 bg-zinc-900/40 px-5 py-3 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500/50 focus:outline-hidden focus:ring-1 focus:ring-pink-500/20 text-base transition-all disabled:opacity-50"
               />
-              {isPremium && (
+              {isPremium && character?.personality_description?.includes('<!-- METADATA:') && (
                 <button
                   type="button"
                   disabled={isGeneratingScene || isStreaming || messages.length === 0}
@@ -486,6 +834,7 @@ export default function ChatPage() {
                   )}
                 </button>
               )}
+
               <button
                 type="submit"
                 disabled={isStreaming || !inputText.trim()}

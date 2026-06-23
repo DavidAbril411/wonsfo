@@ -156,3 +156,50 @@ export async function processSpeechDialect(
   // el diccionario léxico regex determinista.
   return applyLocalLexicon(text, country);
 }
+
+/**
+ * Sanitiza y normaliza el formato de un mensaje de juego de rol.
+ * Divide el texto alternando entre diálogos (entre comillas) y acciones (entre asteriscos).
+ * Si hay etiquetas de asterisco desbalanceadas o mal colocadas por el LLM, las reconstruye de manera consistente.
+ */
+export function sanitizeRoleplayFormatting(text: string): string {
+  if (!text) return '';
+
+  // 1. Normalizar comillas curvas a rectas
+  let cleaned = text.replace(/[“”]/g, '"');
+
+  // 2. Dividir por asteriscos para separar diálogos de acciones
+  const parts = cleaned.split('*');
+  
+  // Si no hay asteriscos, retornar el texto con comillas básicas si no las tiene
+  if (parts.length === 1) {
+    let trimmed = cleaned.trim();
+    if (!trimmed) return '';
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      return trimmed;
+    }
+    return trimmed;
+  }
+
+  const formattedParts = parts.map((part, index) => {
+    const isAction = index % 2 !== 0; // Índices impares son acciones (*acción*)
+    let trimmed = part.trim();
+    if (!trimmed) return '';
+
+    if (isAction) {
+      // Limpiar comillas internas y asteriscos del texto de la acción
+      let actionText = trimmed.replace(/["“”]/g, '').trim();
+      if (!actionText) return '';
+      return `*${actionText}*`;
+    } else {
+      // Limpiar asteriscos del texto del diálogo y asegurar envoltura de comillas
+      let speechText = trimmed.replace(/["“”]/g, '').trim();
+      if (!speechText) return '';
+      return `"${speechText}"`;
+    }
+  });
+
+  // Filtrar partes vacías y unirlas con un espacio
+  return formattedParts.filter(p => p !== '').join(' ');
+}
+

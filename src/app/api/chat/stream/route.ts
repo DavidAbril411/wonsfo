@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { evaluateMessageIntimacy, getClimaxMultiplier, shouldTriggerPaywall } from '@/lib/climax-engine';
-import { processSpeechDialect, applyLocalLexicon } from '@/lib/dialect-engine';
+import { processSpeechDialect, applyLocalLexicon, sanitizeRoleplayFormatting } from '@/lib/dialect-engine';
 
 export const dynamic = 'force-dynamic';
 
@@ -212,9 +212,13 @@ export async function POST(request: NextRequest) {
       chronologicalHistory.forEach((msg) => {
         // Excluir mensajes que contienen imágenes generadas
         if (!msg.text.startsWith('![Escena]')) {
+          let cleanedText = msg.text;
+          if (msg.sender === 'assistant') {
+            cleanedText = sanitizeRoleplayFormatting(msg.text);
+          }
           apiMessages.push({
             role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.text
+            content: cleanedText
           });
         }
       });
@@ -321,6 +325,9 @@ export async function POST(request: NextRequest) {
             finalPolishedText = await processSpeechDialect(assistantFullResponse, country, isPremium, openrouterApiKey);
           }
 
+          // Sanitizar el formato antes de guardar en la base de datos para mantener el historial limpio
+          finalPolishedText = sanitizeRoleplayFormatting(finalPolishedText);
+          
           await supabaseAdmin.from('chat_messages').insert({
             chat_id: chatId,
             sender: 'assistant',

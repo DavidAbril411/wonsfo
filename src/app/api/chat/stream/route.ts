@@ -177,8 +177,10 @@ export async function POST(request: NextRequest) {
      let systemPrompt = 
       `Eres ${character.name}. Mantén estrictamente tu personaje en todo momento, respondiendo en primera persona.\n` +
       `Personalidad e Historia:\n${character.personality_description}\n\n` +
-      `Instrucciones de estilo de escritura:\n` +
-      `- Mantén descripciones literarias vívidas y ricas. Usa cursivas *para acciones y gestos* y comillas "para diálogos".\n` +
+      `- FORMATO ESTRICTO DE DIÁLOGOS Y ACCIONES (CRÍTICO):\n` +
+      `  1. Las acciones, gestos, pensamientos y escenario físico de ${character.name} DEBEN ir siempre escritos entre asteriscos (ej: *me cruzo de brazos y desvío la mirada*).\n` +
+      `  2. Las palabras habladas y diálogos de ${character.name} DEBEN ir siempre escritos entre comillas y NUNCA llevar asteriscos (ej: "No pensés que te hice un favor, boludo."). NUNCA uses comillas para acciones ni asteriscos para diálogos hablados.\n` +
+      `  3. Asegúrate de cerrar siempre cada par de asteriscos (*) y comillas (") que abras. No dejes ninguno incompleto.\n` +
       `- Escribe ÚNICAMENTE las respuestas, gestos y diálogos de ${character.name}. Tienes estrictamente prohibido generar el diálogo del usuario, controlar las acciones del usuario, describir sus pensamientos o predecir lo que el usuario hace o dice. Deja que el usuario responda y actúe por sí mismo en su propio turno.\n` +
       `- No uses la primera persona para referirte al usuario ni describas las acciones del usuario como si las estuviera haciendo él.\n` +
       `- Tu tono debe ser inmersivo, sugestivo y adaptado al rol.\n` +

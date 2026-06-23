@@ -151,8 +151,8 @@ export async function processSpeechDialect(
     return text;
   }
 
-  // Combinación: aplicamos primero la traducción de dialecto por LLM (si es posible)
-  // y luego hacemos un pasaje rápido de regex para limpiar cualquier residuo o palabra neutra obvia.
-  const llmResult = await rewriteWithLocalDialectLLM(text, country, openrouterApiKey);
-  return applyLocalLexicon(llmResult, country);
+  // Para evitar alucinaciones de traducción (ej: traducir 'compañía' como 'empresa')
+  // y evitar romper la estructura de asteriscos y comillas, aplicamos únicamente
+  // el diccionario léxico regex determinista.
+  return applyLocalLexicon(text, country);
 }

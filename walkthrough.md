@@ -81,6 +81,18 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
+## 6. Tolerancia a Fallos e Inferencia Ininterrumpida: Cascada de Fallback de Modelos (Fase 5.7)
+
+* **Diagnóstico del Error Upstream 429:**
+  * Al intentar editar o regenerar, OpenRouter reportaba un error `429 Rate Limited` en el modelo principal (`sao10k/l3.3-euryale-70b`) de su proveedor aguas arriba (NextBit). Dado que la API Route anterior no realizaba ningún manejo de errores, esto colapsaba la petición y resultaba en un error `502 Bad Gateway` en el frontend, bloqueando la conversación.
+* **Manejo de Errores y Fallback en Cascada:**
+  * Implementamos un sistema de reintentos automático y transparente en `/api/chat/stream/route.ts`:
+    1. **Primer Intento (Modelo Principal):** Lanza la petición al modelo elegido por el usuario (ej: `sao10k/l3.3-euryale-70b`).
+    2. **Segundo Intento (Primer Fallback):** Si OpenRouter retorna un error (como código 429, 503 o 400), interceptamos la respuesta, emitimos una advertencia en el servidor y re-lanzamos la petición inmediatamente a **`thedrummer/cydonia-24b-v4.1`** (o a `thedrummer/skyfall-36b-v2` si el original era Cydonia).
+    3. **Tercer Intento (Último Recurso):** Si el primer fallback también falla, el sistema realiza un último reintento utilizando el modelo gratuito y de alta tolerancia **`cognitivecomputations/dolphin-mistral-24b-venice-edition:free`**, asegurando que el flujo de streaming al usuario nunca se interrumpa.
+
+---
+
 ## 4. Personalización del Usuario: Nombre y Género en los Chats (Fase 5.5)
 
 * **Nuevos Campos en el Perfil y Registro:**

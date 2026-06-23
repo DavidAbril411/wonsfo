@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    let openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -292,8 +292,61 @@ export async function POST(request: NextRequest) {
 
     if (!openRouterResponse.ok) {
       const errorText = await openRouterResponse.text();
-      console.error('OpenRouter error response:', errorText);
-      return new Response(JSON.stringify({ error: `Error de OpenRouter: ${errorText}` }), {
+      console.warn(`OpenRouter primary model (${selectedModel}) failed:`, errorText);
+
+      // Determinar primer fallback
+      let fallbackModel = 'thedrummer/cydonia-24b-v4.1';
+      if (selectedModel === 'thedrummer/cydonia-24b-v4.1') {
+        fallbackModel = 'thedrummer/skyfall-36b-v2';
+      }
+
+      console.log(`Intentando fallback a: ${fallbackModel}`);
+      openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${openrouterApiKey}`,
+          'HTTP-Referer': 'https://wonsfo.com',
+          'X-Title': 'Wonsfo NSFW Chat Client'
+        },
+        body: JSON.stringify({
+          model: fallbackModel,
+          messages: apiMessages,
+          stream: true,
+          temperature: 0.85
+        })
+      });
+
+      if (!openRouterResponse.ok) {
+        const errorText2 = await openRouterResponse.text();
+        console.warn(`OpenRouter secondary fallback (${fallbackModel}) failed:`, errorText2);
+
+        // Segundo fallback extremo: free tier
+        const ultimateFallback = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
+        console.log(`Intentando fallback extremo a: ${ultimateFallback}`);
+
+        openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${openrouterApiKey}`,
+            'HTTP-Referer': 'https://wonsfo.com',
+            'X-Title': 'Wonsfo NSFW Chat Client'
+          },
+          body: JSON.stringify({
+            model: ultimateFallback,
+            messages: apiMessages,
+            stream: true,
+            temperature: 0.85
+          })
+        });
+      }
+    }
+
+    if (!openRouterResponse.ok) {
+      const finalErrorText = await openRouterResponse.text();
+      console.error('All OpenRouter fallbacks failed:', finalErrorText);
+      return new Response(JSON.stringify({ error: `Error de OpenRouter (todos los modelos fallaron): ${finalErrorText}` }), {
         status: 502,
         headers: { 'Content-Type': 'application/json' }
       });

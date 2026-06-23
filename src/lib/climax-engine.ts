@@ -59,6 +59,10 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 }
 
+function removeAccents(str: string): string {
+  return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
 /**
  * Evalúa el nivel de intimidad de un mensaje de forma híbrida (palabras clave + semántica).
  * @param text Mensaje a evaluar.
@@ -66,18 +70,19 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
  * @param messageCount Cantidad de mensajes previos en el chat (opcional).
  * @returns Score de intimidad calculado para el mensaje (0 - 100).
  */
-export function evaluateMessageIntimacy(text: string, embedding?: number[], messageCount = 0): number {
-  const normalizedText = text.toLowerCase();
+export function evaluateMessageIntimacy(text: string, embedding?: number[], messageCount = 99): number {
+  const normalizedText = removeAccents(text.toLowerCase());
   let keywordScore = 0;
 
   // 1. Puntuación basada en Keywords
   for (const [kw, score] of Object.entries(INTIMACY_KEYWORDS)) {
+    const normalizedKw = removeAccents(kw.toLowerCase());
     // Usar regex para buscar límites de palabra
-    const regex = new RegExp(`\\b${kw}[a-z]*\\b`, 'i');
+    const regex = new RegExp(`\\b${normalizedKw}[a-z]*\\b`, 'i');
     if (regex.test(normalizedText)) {
       // Penalizar palabras físicas/sexuales si la conversación está empezando (menos de 12 mensajes)
       const highPhysicalKws = ['desnud', 'gemir', 'gemid', 'excitad', 'hacer el amor', 'tocar', 'toca', 'acariciar', 'beso', 'besar', 'sexo', 'coger', 'placer'];
-      const isHighPhysical = highPhysicalKws.some(pk => kw.includes(pk) || pk.includes(kw));
+      const isHighPhysical = highPhysicalKws.some(pk => normalizedKw.includes(pk) || pk.includes(normalizedKw));
       
       if (isHighPhysical && messageCount < 12) {
         // Reducir la aportación al clímax en un 85% para castigar la premura y forzar slow burn

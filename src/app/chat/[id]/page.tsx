@@ -84,6 +84,11 @@ export default function ChatPage() {
 
         setCharacter(chat.character);
 
+        if (chat.model) {
+          setPremiumModels(chat.model);
+          localStorage.setItem(`chat_model_${chatId}`, chat.model);
+        }
+
         // 3. Cargar el histórico de mensajes
         const { data: chatMessages, error: msgError } = await supabase
           .from('chat_messages')
@@ -337,10 +342,15 @@ export default function ChatPage() {
             </span>
             <select
               value={premiumModels}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const selected = e.target.value;
                 setPremiumModels(selected);
                 localStorage.setItem(`chat_model_${chatId}`, selected);
+                // Persistir en base de datos
+                await supabase
+                  .from('chats')
+                  .update({ model: selected })
+                  .eq('id', chatId);
               }}
               className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
             >
@@ -461,6 +471,21 @@ export default function ChatPage() {
                 placeholder={`Envía un mensaje a ${character.name}...`}
                 className="block flex-1 rounded-full border border-zinc-800 bg-zinc-900/40 px-5 py-3 text-zinc-100 placeholder:text-zinc-550 focus:border-pink-500/50 focus:outline-hidden focus:ring-1 focus:ring-pink-500/20 text-base transition-all disabled:opacity-50"
               />
+              {isPremium && (
+                <button
+                  type="button"
+                  disabled={isGeneratingScene || isStreaming || messages.length === 0}
+                  onClick={handleGenerateScene}
+                  className="inline-flex items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 p-3 text-zinc-400 hover:text-pink-400 disabled:opacity-30 disabled:pointer-events-none transition-all duration-200 cursor-pointer shadow-md"
+                  title="Generar imagen de la escena actual con IA"
+                >
+                  {isGeneratingScene ? (
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-800 border-t-pink-500"></div>
+                  ) : (
+                    "📸"
+                  )}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={isStreaming || !inputText.trim()}
@@ -499,7 +524,7 @@ export default function ChatPage() {
               <h3 className="text-lg font-black text-zinc-50">{character.name}</h3>
               <p className="text-xs text-zinc-400 mt-1.5 px-2 leading-relaxed">
                 {modalImageUrl === character.avatar_url 
-                  ? character.personality_description 
+                  ? character.personality_description.replace(/<!-- METADATA: (\{.*?\}) -->/, '')
                   : "Escena generada por IA basada en tu chat."}
               </p>
             </div>

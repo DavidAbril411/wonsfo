@@ -179,6 +179,8 @@ export async function POST(request: NextRequest) {
       `Personalidad e Historia:\n${character.personality_description}\n\n` +
       `Instrucciones de estilo de escritura:\n` +
       `- Mantén descripciones literarias vívidas y ricas. Usa cursivas *para acciones y gestos* y comillas "para diálogos".\n` +
+      `- Escribe ÚNICAMENTE las respuestas, gestos y diálogos de ${character.name}. Tienes estrictamente prohibido generar el diálogo del usuario, controlar las acciones del usuario, describir sus pensamientos o predecir lo que el usuario hace o dice. Deja que el usuario responda y actúe por sí mismo en su propio turno.\n` +
+      `- No uses la primera persona para referirte al usuario ni describas las acciones del usuario como si las estuviera haciendo él.\n` +
       `- Tu tono debe ser inmersivo, sugestivo y adaptado al rol.\n` +
       `- Escribe exclusivamente en Español.` +
       climaxDirective;
@@ -220,7 +222,7 @@ export async function POST(request: NextRequest) {
     // Premium: gpt-oss-120b, euryale-70b o cydonia-24b (por defecto cydonia-24b si no se especifica)
     let selectedModel = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
     if (isPremium) {
-      selectedModel = model || 'thedrummer/cydonia-24b-v4.1';
+      selectedModel = chat?.model || model || 'thedrummer/cydonia-24b-v4.1';
     }
 
     // 11. Llamar a OpenRouter con Streaming habilitado

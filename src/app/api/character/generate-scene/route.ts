@@ -288,7 +288,8 @@ export async function POST(request: NextRequest) {
     }
 
     const atlasCloudApiKey = process.env.ATLAS_CLOUD_API_KEY;
-    let successWithAtlas = false;
+    const airforceApiKey = process.env.AIRFORCE_API_KEY;
+    let success = false;
 
     if (atlasCloudApiKey) {
       try {
@@ -325,14 +326,60 @@ export async function POST(request: NextRequest) {
         }
 
         imageBuffer = Buffer.from(base64Str, 'base64');
-        successWithAtlas = true;
+        success = true;
         console.log("Generación exitosa con Atlas Cloud!");
       } catch (e: any) {
-        console.error("Error en Atlas Cloud, realizando fallback a Pollinations...", e);
+        console.error("Error en Atlas Cloud, realizando fallback...", e);
       }
     }
 
-    if (!successWithAtlas) {
+    if (!success && airforceApiKey) {
+      try {
+        const airforceModel = artStyle === 'Anime'
+          ? (process.env.AIRFORCE_ANIME_MODEL || 'flux-2-klein-4b')
+          : (process.env.AIRFORCE_REAL_MODEL || 'flux-2-dev');
+
+        console.log(`Llamando a Api.Airforce con modelo: ${airforceModel}`);
+        const airforceResponse = await fetch('https://api.airforce/v1/images/generations', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${airforceApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: airforceModel,
+            prompt: enhancedPrompt,
+            n: 1,
+            size: '1024x1024'
+          })
+        });
+
+        if (!airforceResponse.ok) {
+          const errText = await airforceResponse.text();
+          throw new Error(`Api.Airforce error (${airforceResponse.status}): ${errText}`);
+        }
+
+        const resultJson = await airforceResponse.json();
+        const imageUrl = resultJson.data?.[0]?.url;
+        if (!imageUrl) {
+          throw new Error(`Api.Airforce response did not contain image URL: ${JSON.stringify(resultJson)}`);
+        }
+
+        const fetchImage = await fetch(imageUrl);
+        if (!fetchImage.ok) {
+          throw new Error(`Failed to fetch image from Api.Airforce: ${fetchImage.statusText}`);
+        }
+
+        const imageArrayBuffer = await fetchImage.arrayBuffer();
+        imageBuffer = Buffer.from(imageArrayBuffer);
+        success = true;
+        console.log("Generación exitosa con Api.Airforce!");
+      } catch (e: any) {
+        console.error("Error en Api.Airforce, realizando fallback...", e);
+      }
+    }
+
+    if (!success) {
       const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
       let activeModel = 'klein';
       let pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;

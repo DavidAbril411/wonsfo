@@ -107,6 +107,14 @@ CREATE POLICY "Los usuarios pueden crear mensajes en sus propios chats"
     )
   );
 
+CREATE POLICY "Los usuarios pueden borrar mensajes en sus propios chats" 
+  ON public.chat_messages FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.chats 
+      WHERE public.chats.id = chat_messages.chat_id AND public.chats.user_id = auth.uid()
+    )
+  );
+
 -- Función SQL para buscar similitud semántica de mensajes (RAG)
 CREATE OR REPLACE FUNCTION match_chat_messages (
   query_embedding vector(1536),

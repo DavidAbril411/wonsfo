@@ -293,8 +293,10 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Usar 'flux' para Anime e 'flux-realism' para Real, que brindan caras fotorrealistas y de altísima definición
-    const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
+    // Usamos modelos de calidad profesional (Pro) disponibles en Pollinations:
+    // - Para Estilo Anime: 'grok-imagine-pro' (por su altísima calidad de detalle, composición y colorido)
+    // - Para Estilo Real: 'wan-image-pro' (por su extraordinario fotorrealismo en piel y anatomía natural)
+    const activeModel = artStyle === 'Anime' ? 'grok-imagine-pro' : 'wan-image-pro';
     
     // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
     // directamente dentro de la descripción del prompt de texto.

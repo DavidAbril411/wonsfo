@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
       ethnicity,
       relationship,
       contextDetails,
+      startLocation,
       greetingChoice,
       manualGreeting,
       hairLength,
@@ -190,11 +191,15 @@ export async function POST(request: NextRequest) {
       `- Personalidad dominante: ${personality}\n` +
       `- Relación con el usuario: ${relationship}\n` +
       `- Escenario y Profesión (Contexto): ${contextDetails || 'Ninguno especificado.'}\n` +
+      `- Lugar de inicio: ${startLocation || 'Me da igual (Generado por IA)'}\n` +
       `- Dialecto: ${dialect}\n\n` +
+      `Instrucciones de Escenario y Lugar de Inicio:\n` +
+      `* Si el "Lugar de inicio" es "Me da igual (Generado por IA)" o está en blanco, genera de manera creativa un lugar/escenario de inicio lógico que encaje perfectamente con la relación y la profesión del personaje (por ejemplo: una biblioteca, un café, una oficina, un gimnasio, una parada de autobús, etc.). Evita comenzar siempre en una casa a menos que sea 100% indispensable por el tipo de relación (ej. madrastra).\n` +
+      `* Si el "Lugar de inicio" especifica un sitio concreto, úsalo obligatoriamente como el lugar de inicio.\n\n` +
       `Debes retornar ÚNICAMENTE un objeto JSON con las siguientes propiedades:\n` +
       `1. "description": Una descripción de su personalidad y trasfondo de 2 a 3 frases en español, escrita de manera inmersiva.\n` +
-      `2. "greeting": ${shouldGenerateGreeting ? 'Un mensaje inicial o saludo en primera persona en español, altamente inmersivo, y acorde a su dialecto, que incluya acciones entre asteriscos (ej. *te miro de arriba a abajo y sonrío*).' : 'Retorna un string vacío ""'}\n` +
-      `3. "clothing_and_setting_en": Una frase descriptiva muy corta en inglés (3 a 5 palabras) sobre la indumentaria y el escenario basada en el contexto/profesión (ejemplo: "wearing nurse uniform in a hospital clinic").\n\n` +
+      `2. "greeting": ${shouldGenerateGreeting ? 'Un mensaje inicial o saludo en primera persona en español, altamente inmersivo y acorde a su dialecto, que comience EXACTAMENTE en el lugar de inicio y describa el entorno de forma breve usando acciones entre asteriscos (ej. *estoy sentada en la esquina de la biblioteca antigua, pasando las páginas de un libro gigante de historia* "Hola...").' : 'Retorna un string vacío ""'}\n` +
+      `3. "clothing_and_setting_en": Una frase descriptiva muy corta en inglés (3 a 5 palabras) sobre la indumentaria y el escenario basada en el contexto y el lugar de inicio (ejemplo: "wearing nurse uniform in a hospital clinic").\n\n` +
       `Responde estrictamente en formato JSON válido, sin bloques de código markdown, sin texto adicional y sin envoltorios. Ejemplo: { "description": "...", "greeting": "...", "clothing_and_setting_en": "..." }`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -326,7 +331,8 @@ export async function POST(request: NextRequest) {
       waistButt,
       muscleAmount,
       beardStyle,
-      personality
+      personality,
+      startLocation
     };
     const metadataString = `\n\n<!-- METADATA: ${JSON.stringify(metadata)} -->`;
 

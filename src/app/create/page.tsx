@@ -115,6 +115,7 @@ export default function CreateAgentPage() {
   const [skin, setSkin] = useState('Clara');
   const [personality, setPersonality] = useState('Seductora');
   const [contextDetails, setContextDetails] = useState('');
+  const [startLocation, setStartLocation] = useState('');
   const [dialect, setDialect] = useState('Neutro');
   const [climaxSpeed, setClimaxSpeed] = useState('Slow');
   
@@ -208,6 +209,7 @@ export default function CreateAgentPage() {
           ethnicity,
           relationship,
           contextDetails: contextDetails.trim(),
+          startLocation: startLocation.trim(),
           greetingChoice,
           manualGreeting: manualGreeting.trim(),
           hairLength,
@@ -776,6 +778,33 @@ export default function CreateAgentPage() {
                 Esta descripción se traducirá para vestir al avatar con IA y contextualizar la historia inicial.
               </p>
             </div>
+
+            {/* Lugar de inicio de la historia */}
+            <div className="space-y-2 pt-4">
+              <div className="flex justify-between items-center">
+                <label htmlFor="start-location" className="block text-xs font-bold uppercase tracking-wider text-zinc-450">
+                  Lugar donde comienza la historia
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setStartLocation('Me da igual (Generado por IA)')}
+                  className="px-2 py-1 text-[10px] bg-zinc-900 border border-zinc-850 text-pink-400 font-bold rounded-lg hover:border-pink-500/30 transition-all cursor-pointer"
+                >
+                  🎲 Me da igual
+                </button>
+              </div>
+              <input
+                type="text"
+                id="start-location"
+                value={startLocation}
+                onChange={(e) => setStartLocation(e.target.value)}
+                placeholder="Ej: En un café lluvioso, una biblioteca antigua, un gimnasio..."
+                className="block w-full rounded-xl border border-zinc-800 bg-zinc-900/40 px-4 py-3 text-zinc-100 placeholder:text-zinc-650 focus:border-pink-500/50 focus:outline-hidden focus:ring-1 focus:ring-pink-500/20 text-base transition-all"
+              />
+              <p className="text-[10px] text-zinc-500 leading-normal">
+                Define el escenario exacto de la primera escena de rol. Si dejas en blanco o usas "Me da igual", la IA elegirá un lugar creativo.
+              </p>
+            </div>
           </div>
         )}
 
@@ -940,6 +969,13 @@ export default function CreateAgentPage() {
                 <div className="pt-2 border-t border-zinc-900 text-xs text-zinc-400 leading-relaxed">
                   <span className="font-bold text-zinc-350 block mb-1">Contexto inicial:</span>
                   "{contextDetails}"
+                </div>
+              )}
+
+              {startLocation && (
+                <div className="pt-2 border-t border-zinc-900 text-xs text-zinc-400 leading-relaxed">
+                  <span className="font-bold text-zinc-350 block mb-1">Lugar de inicio:</span>
+                  "{startLocation}"
                 </div>
               )}
             </div>

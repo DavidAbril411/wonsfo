@@ -68,28 +68,11 @@ export default function Dashboard() {
 
         if (error) throw error;
 
-        // Si no hay personajes creados en la DB y hay sesión de usuario, creamos los por defecto para este usuario
-        if ((!dbCharacters || dbCharacters.length === 0) && session) {
-          const insertPromises = DEFAULT_AGENTS.map(agent => 
-            supabase.from('characters').insert({
-              ...agent,
-              user_id: session.user.id
-            }).select().single()
-          );
-          
-          const results = await Promise.all(insertPromises);
-          dbCharacters = results.map(r => r.data).filter(Boolean);
-        } else if ((!dbCharacters || dbCharacters.length === 0) && !session) {
-          // Si no hay sesión y la DB está vacía, mostramos los estáticos en memoria
-          dbCharacters = DEFAULT_AGENTS.map((a, i) => ({ ...a, id: `static-${i}` }));
-        }
-
         setAgents(dbCharacters || []);
       } catch (err) {
         console.error('Error loading characters:', err);
         setDbError(true);
-        // Fallback a los agentes estáticos en local para que la UI no quede vacía si Supabase no está conectado
-        setAgents(DEFAULT_AGENTS.map((a, i) => ({ ...a, id: `static-${i}` })));
+        setAgents([]);
       } finally {
         setLoading(false);
       }

@@ -163,21 +163,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No hay mensajes de texto en este chat para generar una escena.' }, { status: 400 });
     }
 
-    // Encontrar el último mensaje del asistente e información del usuario (los más recientes dentro de los mensajes de texto)
-    // Como lastMessages está ordenado DESC (created_at DESC), el primer elemento es el último mensaje.
-    const lastMsg = textMessages[0];
-    let lastAssistantText = '';
-    let lastUserText = '';
-
-    if (lastMsg.sender === 'assistant') {
-      lastAssistantText = lastMsg.text;
-      // Buscar el del usuario anterior
-      lastUserText = textMessages.find(m => m.sender === 'user')?.text || '';
-    } else {
-      lastUserText = lastMsg.text;
-      // Buscar el del asistente anterior
-      lastAssistantText = textMessages.find(m => m.sender === 'assistant')?.text || '';
-    }
+    // Obtener el historial de los últimos 8 mensajes para contexto del escenario
+    const recentMessages = textMessages.slice(0, 8).reverse();
+    const chatHistoryContext = recentMessages.map(m => 
+      `${m.sender === 'user' ? 'Usuario' : character.name}: ${m.text}`
+    ).join('\n');
 
     // 4. Intentar extraer metadatos del personaje
     const metadataMatch = character.personality_description.match(/<!-- METADATA: (\{.*?\}) -->/);
@@ -216,16 +206,15 @@ export async function POST(request: NextRequest) {
     }
 
     const openRouterPrompt = 
-      `Dada la última interacción en un juego de rol interactivo en español:\n` +
-      `Mensaje del usuario: "${lastUserText}"\n` +
-      `Mensaje del personaje (${character.name}): "${lastAssistantText}"\n\n` +
-      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (o desnudez) y el entorno/fondo detallado donde se encuentra (por ejemplo, "lying down on the stones at the top of a mountain, looking up at the sky, outdoors background").\n` +
+      `Dada la siguiente conversación de un juego de rol en español:\n` +
+      `[HISTORIAL DE CHAT]\n${chatHistoryContext}\n\n` +
+      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose de ${character.name} en el último turno, su vestimenta exacta (o desnudez) y el entorno/fondo detallado según la conversación (ej. si están en la montaña, describe el bosque o la montaña de fondo; si están en la playa, la arena; no inventes interiores como una cama o habitación si están al aire libre).\n` +
       `REGLAS ESTRICTAS DE CONTENIDO Y DESNUDEZ (CRÍTICO):\n` +
-      `- Si los mensajes indican que el personaje está sin ropa, desnudo, sacándose la ropa o en la cama/montaña sin ropa, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
+      `- Si los mensajes indican que el personaje está sin ropa, desnudo o quitándosela, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
       `- Si tiene ropa parcial, descríbelo de manera exacta (ej: "wearing only black lace panties, bare breasts").\n` +
-      `- Describe el fondo y entorno con detalles contextuales ricos correspondientes al rol (si están en la montaña, pon un fondo de naturaleza, montaña o bosque. Si están en una casa, pon el interior). Evita fondos planos o negros.\n` +
-      `- Sé muy específico con la pose del personaje (ej: "recostados", "lying on the stones", "looking up at the clouds").\n` +
-      `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones, explicaciones ni bloques de código markdown. Escribe la descripción directamente.`;
+      `- Describe el fondo y entorno de manera exacta según el historial del rol (si están en una montaña, pon bosque o montaña; si están en una oficina, interior de oficina, etc.). Evita fondos planos o genéricos.\n` +
+      `- Sé muy específico con la pose del personaje en el último turno.\n` +
+      `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones ni explicaciones. Escribe la descripción directamente.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -300,8 +289,10 @@ export async function POST(request: NextRequest) {
     
     // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
     // directamente dentro de la descripción del prompt de texto.
+    // Omitimos la referencia de avatar si el personaje está desnudo para evitar que el IP-Adapter de la IA
+    // copie la ropa interior/sujetador que tiene puesto en su avatar de perfil.
     let enhancedPrompt = imagePrompt;
-    if (character.avatar_url) {
+    if (character.avatar_url && !isNude) {
       enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
     }
 
@@ -375,7 +366,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: insertedMsg
+      message: insertedMsg,
+      prompt: enhancedPrompt
     });
 
   } catch (error: any) {

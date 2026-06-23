@@ -269,9 +269,17 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Usar seedream5 (Seeddream 5.0 Lite) que acepta imágenes de entrada (mejor relación calidad/precio)
-    const activeModel = 'seedream5';
-    let pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    // Usar 'flux' para Anime e 'flux-realism' para Real, que brindan caras fotorrealistas y de altísima definición
+    const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
+    
+    // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
+    // directamente dentro de la descripción del prompt de texto, además del parámetro url.
+    let enhancedPrompt = imagePrompt;
+    if (character.avatar_url) {
+      enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
+    }
+
+    let pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     if (character.avatar_url) {
       pollinationsUrl += `&image=${encodeURIComponent(character.avatar_url)}`;

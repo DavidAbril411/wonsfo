@@ -71,6 +71,31 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
+## 5. Mejora de Calidad Visual de Escenas: Migración a Modelos FLUX (Fase 5.6)
+
+* **Diagnóstico de Deformidad Visual:**
+  * El modelo anterior de escenas (`seedream5`) tendía a deformar los rostros y manos de los personajes al procesar las transformaciones de imagen de referencia (`image-to-image`) en planos intermedios o con luz difusa.
+* **Soluciones y Mejoras de Renderizado:**
+  1. **Actualización de Modelos:** Reemplazamos `seedream5` en el endpoint de escenas (`/api/character/generate-scene/route.ts`) por los modelos de vanguardia de Pollinations AI: **`flux`** (para personajes en estilo Anime/Ilustración) y **`flux-realism`** (para personajes en estilo Real/Fotorrealista). Estos modelos son reconocidos por su altísima fidelidad anatómica, calidad de texturas de piel y realismo en rostros.
+  2. **Inyección de Imagen de Referencia en Prompt:** Para conservar la coherencia física del personaje (rostro, rasgos, ropa y cabello) sin depender exclusivamente del parámetro de imagen, añadimos la instrucción `Character face reference: [avatar_url]` al inicio de los prompts de texto de Pollinations, reforzando la similitud visual con el avatar de perfil.
+
+---
+
+## 4. Personalización del Usuario: Nombre y Género en los Chats (Fase 5.5)
+
+* **Nuevos Campos en el Perfil y Registro:**
+  * Modificamos la tabla de `public.profiles` en la base de datos Supabase para agregar las columnas `display_name` (Nombre Real) y `gender` (Género).
+  * **Pantalla de Registro (`src/app/login/page.tsx`):** Añadimos controles dinámicos para que, al activar la pestaña de "Registrarse", el usuario pueda ingresar su nombre real y su género (Hombre, Mujer, Trans) desde el formulario inicial.
+  * **Pantalla de Perfil (`src/app/profile/page.tsx`):** Agregamos los inputs correspondientes para que los usuarios puedan consultar y editar su nombre real y género en cualquier momento de forma segura.
+  * **Trigger de Creación (`supabase_schema.sql`):** Modificamos la función del trigger PostgreSQL `handle_new_user()` para extraer e insertar el `display_name` y `gender` desde la metadata cruda de registro de Supabase Auth (`new.raw_user_meta_data`).
+* **Integración y Personalización del Chat:**
+  * Actualizamos el endpoint `/api/chat/stream/route.ts` para recuperar el nombre real y género del usuario.
+  * **Instrucciones en Prompt:** Inyectamos una sección de metadatos del usuario al prompt principal de OpenRouter:
+    * Se le ordena estrictamente dirigirse al usuario por su nombre real (`display_name`) en los momentos adecuados de los diálogos.
+    * Se le indica el género del usuario (`gender`) mapeando de forma explícita las reglas gramaticales y adjetivos según corresponda (adjetivos masculinos para Hombre, femeninos para Mujer, etc.) para adaptar pronombres y diálogos de forma impecable.
+
+---
+
 ## 3. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**

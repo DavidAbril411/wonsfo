@@ -293,10 +293,10 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Usamos modelos de calidad profesional (Pro) disponibles en Pollinations:
-    // - Para Estilo Anime: 'grok-imagine-pro' (por su altísima calidad de detalle, composición y colorido)
-    // - Para Estilo Real: 'wan-image-pro' (por su extraordinario fotorrealismo en piel y anatomía natural)
-    const activeModel = artStyle === 'Anime' ? 'grok-imagine-pro' : 'wan-image-pro';
+    // Usamos modelos modernos y eficientes de alta definición en gen.pollinations.ai:
+    // - Para Estilo Anime: 'klein' (FLUX.2 Klein 4B, por su altísima definición y fidelidad en ilustraciones)
+    // - Para Estilo Real: 'flux' (Flux Schnell, por su velocidad extraordinaria y fotorrealismo de primer nivel)
+    const activeModel = artStyle === 'Anime' ? 'klein' : 'flux';
     
     // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
     // directamente dentro de la descripción del prompt de texto.
@@ -305,8 +305,8 @@ export async function POST(request: NextRequest) {
       enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
     }
 
-    // ELIMINAMOS la llamada img2img (&image=...) para evitar que se herede rígidamente la ropa/pose del avatar original y genere deformaciones como 4 brazos.
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    // Usamos el endpoint actualizado gen.pollinations.ai/image/ para que respete el parámetro model
+    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {

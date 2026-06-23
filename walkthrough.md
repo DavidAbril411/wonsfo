@@ -108,8 +108,14 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
   1. **Modelo Unfiltered para Escenas:** Migramos el modelo de traducción/resumen en `/api/character/generate-scene/route.ts` al modelo libre **`cognitivecomputations/dolphin-mistral-24b-venice-edition:free`** de OpenRouter. Esto garantiza que no haya filtros al procesar textos de rol eróticos o íntimos explícitos.
   2. **Compatibilidad en Texto Plano:** Modificamos la respuesta de la traducción a texto plano libre (sin forzar modo JSON en la API) para evitar bloqueos y simplificar el análisis del contenido generado.
   3. **Instrucciones Literales de Desnudez:** El prompt instruye específicamente que si la escena describe desnudez o relaciones sexuales, se describa en inglés como `completely naked`, `fully nude`, `bare skin`, etc.
-  4. **Keywords de Calidad NSFW:** Si el texto describe desnudez, inyectamos palabras clave de control de alta definición (`explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body`) para guiar a Flux en el renderizado anatómico explícito.
-  5. **Desactivación de img2img para Escenas:** Eliminamos el parámetro `&image=...` de la URL de Pollinations. Esto elimina la restricción de pose y vestimenta heredada del retrato del avatar, permitiendo que **`flux`** y **`flux-realism`** generen anatomías limpias y correctas (eliminando el bug de los 4 brazos) desde cero, manteniendo la coherencia facial mediante la descripción detallada del prompt.
+  4. **Keywords de Calidad NSFW:** Si el texto describe desnudez, inyectamos palabras clave de control de alta definición (`explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body`) para guiar a la IA en el renderizado anatómico explícito.
+  5. **Desactivación de img2img para Escenas:** Eliminamos el parámetro `&image=...` de la URL de Pollinations. Esto elimina la restricción de pose y vestimenta heredada del retrato del avatar, permitiendo generar anatomías limpias y correctas (eliminando el bug de los 4 brazos) desde cero.
+  6. **Migración a gen.pollinations.ai y Modelos de Alta Fidelidad sin Limitaciones:** Descubrimos que el endpoint antiguo `image.pollinations.ai/p/` ignoraba el parámetro `model` y realizaba fallback forzoso al modelo de baja calidad y deforme `sana`. Adicionalmente, los modelos `-pro` (`wan-image-pro`, `grok-imagine-pro`) retornaban error de pago (`402 Payment Required`) debido a saldo 0 en la clave API.
+     Para solucionarlo de forma robusta y económica:
+     * Migramos la base URL al nuevo motor de inferencia de Pollinations: **`https://gen.pollinations.ai/image/`**.
+     * Mapeamos a los modelos de alta definición incluidos bajo la suscripción de clave estándar:
+       * **`flux`** (Flux Schnell): Para estilo fotorrealista (Real), produciendo imágenes ultra detalladas a gran velocidad (~2.3s).
+       * **`klein`** (FLUX.2 Klein 4B): Para estilo Anime (Ilustración), siendo uno de los modelos basados en FLUX.2 más modernos y precisos, con latencias estables de ~5.8s.
 
 ---
 

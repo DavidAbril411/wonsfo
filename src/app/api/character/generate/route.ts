@@ -271,9 +271,11 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Forzamos safe=false y pasamos el modelo flux (flux para real, flux/anime para anime)
-    const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
-    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    // Usamos modelos modernos y eficientes de alta definición en gen.pollinations.ai:
+    // - Para Estilo Anime: 'klein' (FLUX.2 Klein 4B, por su altísima definición y fidelidad en ilustraciones)
+    // - Para Estilo Real: 'flux' (Flux Schnell, por su velocidad extraordinaria y fotorrealismo de primer nivel)
+    const activeModel = artStyle === 'Anime' ? 'klein' : 'flux';
+    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {

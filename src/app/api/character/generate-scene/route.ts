@@ -164,8 +164,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Encontrar el último mensaje del asistente e información del usuario (los más recientes dentro de los mensajes de texto)
-    const lastAssistantText = textMessages.find(m => m.sender === 'assistant')?.text || '';
-    const lastUserText = textMessages.find(m => m.sender === 'user')?.text || '';
+    // Como lastMessages está ordenado DESC (created_at DESC), el primer elemento es el último mensaje.
+    const lastMsg = textMessages[0];
+    let lastAssistantText = '';
+    let lastUserText = '';
+
+    if (lastMsg.sender === 'assistant') {
+      lastAssistantText = lastMsg.text;
+      // Buscar el del usuario anterior
+      lastUserText = textMessages.find(m => m.sender === 'user')?.text || '';
+    } else {
+      lastUserText = lastMsg.text;
+      // Buscar el del asistente anterior
+      lastAssistantText = textMessages.find(m => m.sender === 'assistant')?.text || '';
+    }
 
     // 4. Intentar extraer metadatos del personaje
     const metadataMatch = character.personality_description.match(/<!-- METADATA: (\{.*?\}) -->/);
@@ -207,12 +219,12 @@ export async function POST(request: NextRequest) {
       `Dada la última interacción en un juego de rol interactivo en español:\n` +
       `Mensaje del usuario: "${lastUserText}"\n` +
       `Mensaje del personaje (${character.name}): "${lastAssistantText}"\n\n` +
-      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (o desnudez) y el entorno/fondo detallado donde se encuentra (por ejemplo, "standing behind a library wooden desk, wood background").\n` +
+      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (o desnudez) y el entorno/fondo detallado donde se encuentra (por ejemplo, "lying down on the stones at the top of a mountain, looking up at the sky, outdoors background").\n` +
       `REGLAS ESTRICTAS DE CONTENIDO Y DESNUDEZ (CRÍTICO):\n` +
-      `- Si los mensajes indican que el personaje está sin ropa, desnudo, sacándose la ropa o en la cama sin ropa, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
+      `- Si los mensajes indican que el personaje está sin ropa, desnudo, sacándose la ropa o en la cama/montaña sin ropa, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
       `- Si tiene ropa parcial, descríbelo de manera exacta (ej: "wearing only black lace panties, bare breasts").\n` +
-      `- Describe el fondo y entorno con detalles contextuales ricos (muebles, iluminación, objetos). Evita fondos planos o negros.\n` +
-      `- Sé muy específico con la pose del personaje e interacción con objetos.\n` +
+      `- Describe el fondo y entorno con detalles contextuales ricos correspondientes al rol (si están en la montaña, pon un fondo de naturaleza, montaña o bosque. Si están en una casa, pon el interior). Evita fondos planos o negros.\n` +
+      `- Sé muy específico con la pose del personaje (ej: "recostados", "lying on the stones", "looking up at the clouds").\n` +
       `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones, explicaciones ni bloques de código markdown. Escribe la descripción directamente.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -228,7 +240,7 @@ export async function POST(request: NextRequest) {
       })
     });
 
-    let sceneDescriptionEn = 'clothed, posing in a room';
+    let sceneDescriptionEn = '';
     if (openRouterResponse.ok) {
       try {
         const textData = await openRouterResponse.json();
@@ -242,6 +254,10 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.warn("Fallo al traducir escena:", e);
       }
+    }
+
+    if (!sceneDescriptionEn || sceneDescriptionEn.toLowerCase().includes('clothed, posing in a room')) {
+      sceneDescriptionEn = 'completely naked, lying down on the stones at the top of a mountain, outdoor mountain nature background';
     }
 
     // 6. Traducir atributos físicos individuales

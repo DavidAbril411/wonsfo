@@ -155,7 +155,7 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between bg-zinc-900/30 border border-zinc-900 rounded-xl p-4">
             <div>
               <p className="text-sm font-medium text-zinc-200">Simular Cuenta Premium</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Habilita acentos por país, ritmo de clímax y modelos premium (gpt-oss-120b, Euryale 70B, Cydonia 24B).</p>
+              <p className="text-xs text-zinc-500 mt-0.5">Habilita acentos por país, ritmo de clímax y modelos premium (Skyfall 36B, Euryale 70B, Cydonia 24B).</p>
             </div>
             
             <button

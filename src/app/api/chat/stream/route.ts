@@ -226,10 +226,12 @@ export async function POST(request: NextRequest) {
 
     // 10. Seleccionar el Modelo de Inferencia
     // Free: dolphin-mistral-24b
-    // Premium: gpt-oss-120b, euryale-70b o cydonia-24b (por defecto cydonia-24b si no se especifica)
+    // Premium: skyfall-36b, euryale-70b o cydonia-24b (por defecto cydonia-24b si no se especifica)
     let selectedModel = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
     if (isPremium) {
-      selectedModel = chat?.model || model || 'thedrummer/cydonia-24b-v4.1';
+      const rawModel = chat?.model || model || 'thedrummer/cydonia-24b-v4.1';
+      // Mapear gpt-oss-120b (censurado) a skyfall-36b-v2
+      selectedModel = rawModel === 'openai/gpt-oss-120b' ? 'thedrummer/skyfall-36b-v2' : rawModel;
     }
 
     // 11. Llamar a OpenRouter con Streaming habilitado

@@ -89,8 +89,22 @@ export default function ChatPage() {
         setCharacter(chat.character);
 
         if (chat.model) {
-          setPremiumModels(chat.model);
-          localStorage.setItem(`chat_model_${chatId}`, chat.model);
+          if (chat.model === 'openai/gpt-oss-120b') {
+            const fallbackModel = 'thedrummer/skyfall-36b-v2';
+            setPremiumModels(fallbackModel);
+            localStorage.setItem(`chat_model_${chatId}`, fallbackModel);
+            // Migrate in background to avoid blocking
+            supabase
+              .from('chats')
+              .update({ model: fallbackModel })
+              .eq('id', chatId)
+              .then(({ error }) => {
+                if (error) console.error('Error migrating model:', error);
+              });
+          } else {
+            setPremiumModels(chat.model);
+            localStorage.setItem(`chat_model_${chatId}`, chat.model);
+          }
         }
 
         // 3. Cargar el histórico de mensajes
@@ -631,7 +645,7 @@ export default function ChatPage() {
                 className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
               >
                 <option value="thedrummer/cydonia-24b-v4.1">Cydonia 24B (RP Diario)</option>
-                <option value="openai/gpt-oss-120b">GPT-OSS 120B (Inteligencia)</option>
+                <option value="thedrummer/skyfall-36b-v2">Skyfall 36B (Creativo)</option>
                 <option value="sao10k/l3.3-euryale-70b">Euryale 70B (Descriptivo)</option>
               </select>
             </div>

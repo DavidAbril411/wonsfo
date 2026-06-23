@@ -27,7 +27,19 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
-## 2. Verificación y Resultados de Compilación
+## 2. Reemplazo del Modelo Censurado GPT-OSS por Skyfall 36B V2 (Fase 5.3)
+
+* **Diagnóstico del Rechazo de Seguridad:**
+  * El modelo `openai/gpt-oss-120b` (anteriormente ofrecido como opción Premium "Inteligencia") presentaba directrices de seguridad muy restrictivas heredadas de la alineación de OpenAI, lo cual resultaba en respuestas de rechazo ("Lo siento, pero no puedo ayudar con eso") al entrar en temáticas eróticas o íntimas explícitas.
+* **Soluciones y Reemplazos:**
+  1. **Remoción de la Interfaz:** Reemplazamos la opción de `openai/gpt-oss-120b` por `thedrummer/skyfall-36b-v2` (Skyfall 36B V2 - "Creativo") en la vista del chat (`src/app/chat/[id]/page.tsx`).
+  2. **Migración Transparente:** Agregamos una verificación automática al cargar el chat que detecta si el modelo seleccionado anteriormente era `openai/gpt-oss-120b`, actualizándolo inmediatamente en el localStorage y en la base de datos Supabase a `thedrummer/skyfall-36b-v2` para no interrumpir las conversaciones activas.
+  3. **Mapeo en Backend:** Actualizamos el backend de streaming (`src/app/api/chat/stream/route.ts`) para redirigir cualquier llamada que solicite `openai/gpt-oss-120b` directamente a `thedrummer/skyfall-36b-v2`.
+  4. **Modificación de Textos de Perfil:** Ajustamos las descripciones de la cuenta Premium en `/profile` para reflejar el nuevo catálogo de modelos.
+
+---
+
+## 3. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

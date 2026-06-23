@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS public.chats (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
-  character_id UUID REFERENCES public.characters ON DELETE CASCADE NOT NULL
+  character_id UUID REFERENCES public.characters ON DELETE CASCADE NOT NULL,
+  model TEXT
 );
 
 -- Habilitar RLS en chats

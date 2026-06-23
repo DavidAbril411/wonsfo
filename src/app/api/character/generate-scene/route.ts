@@ -207,12 +207,13 @@ export async function POST(request: NextRequest) {
       `Dada la última interacción en un juego de rol interactivo en español:\n` +
       `Mensaje del usuario: "${lastUserText}"\n` +
       `Mensaje del personaje (${character.name}): "${lastAssistantText}"\n\n` +
-      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (por ejemplo, el vestido, la falda o ropa específica descrita en los mensajes) y el entorno/fondo detallado donde se encuentra (por ejemplo, "standing behind a library wooden desk with a spilled cup of coffee nearby, warm lighting, bookshelves filled with books in the background").\n` +
-      `REGLAS:\n` +
-      `- Identifica y describe con precisión la vestimenta descrita en el mensaje del personaje o del usuario (por ejemplo, si menciona un vestido gris, pon "wearing a grey dress").\n` +
-      `- Describe el fondo y el entorno con detalles contextuales ricos (ej. muebles, objetos, iluminación ambiental, paredes). Evita fondos planos o negros.\n` +
-      `- Sé muy específico con la pose física del personaje y su interacción con los objetos del entorno (ej. "almost knocking over a coffee cup").\n\n` +
-      `Debes retornar ÚNICAMENTE un objeto JSON válido con la propiedad "scene_description_en" (ejemplo: { "scene_description_en": "wearing a grey dress, standing startled behind a library wooden desk, a spilled coffee cup on the desk, warm light, bookshelves in background" }). Sin texto adicional ni formato de código markdown.`;
+      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose del personaje de IA (${character.name}), su vestimenta exacta (o desnudez) y el entorno/fondo detallado donde se encuentra (por ejemplo, "standing behind a library wooden desk, wood background").\n` +
+      `REGLAS ESTRICTAS DE CONTENIDO Y DESNUDEZ (CRÍTICO):\n` +
+      `- Si los mensajes indican que el personaje está sin ropa, desnudo, sacándose la ropa o en la cama sin ropa, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
+      `- Si tiene ropa parcial, descríbelo de manera exacta (ej: "wearing only black lace panties, bare breasts").\n` +
+      `- Describe el fondo y entorno con detalles contextuales ricos (muebles, iluminación, objetos). Evita fondos planos o negros.\n` +
+      `- Sé muy específico con la pose del personaje e interacción con objetos.\n` +
+      `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones, explicaciones ni bloques de código markdown. Escribe la descripción directamente.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -221,10 +222,9 @@ export async function POST(request: NextRequest) {
         'Authorization': `Bearer ${openrouterApiKey}`
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
         messages: [{ role: 'user', content: openRouterPrompt }],
-        temperature: 0.7,
-        response_format: { type: 'json_object' }
+        temperature: 0.7
       })
     });
 
@@ -232,8 +232,13 @@ export async function POST(request: NextRequest) {
     if (openRouterResponse.ok) {
       try {
         const textData = await openRouterResponse.json();
-        const jsonContent = JSON.parse(textData.choices?.[0]?.message?.content?.trim() || '{}');
-        sceneDescriptionEn = jsonContent.scene_description_en || 'clothed, posing in a room';
+        let rawContent = textData.choices?.[0]?.message?.content?.trim() || '';
+        // Limpiar cualquier envoltura que el modelo libre pueda haber agregado
+        rawContent = rawContent.replace(/^```[a-zA-Z]*|```$/g, '').trim();
+        rawContent = rawContent.replace(/^["']|["']$/g, '').trim();
+        if (rawContent) {
+          sceneDescriptionEn = rawContent;
+        }
       } catch (e) {
         console.warn("Fallo al traducir escena:", e);
       }
@@ -262,10 +267,13 @@ export async function POST(request: NextRequest) {
 
     // 7. Construir prompt de la escena
     let imagePrompt = '';
+    const isNude = /naked|nude|unclothed|bare breasts|exposed pubic|panties|underwear/i.test(sceneDescriptionEn);
+    const nsfwKeywords = isNude ? ', explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body' : '';
+
     if (artStyle === 'Anime') {
-      imagePrompt = `${sceneDescriptionEn}, sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, vibrant colors, clean lines, high quality anime artwork, masterpiece`;
+      imagePrompt = `${sceneDescriptionEn}, sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, vibrant colors, clean lines, high quality anime artwork, masterpiece${nsfwKeywords}`;
     } else {
-      imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background`;
+      imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background${nsfwKeywords}`;
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
@@ -273,17 +281,14 @@ export async function POST(request: NextRequest) {
     const activeModel = artStyle === 'Anime' ? 'flux' : 'flux-realism';
     
     // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
-    // directamente dentro de la descripción del prompt de texto, además del parámetro url.
+    // directamente dentro de la descripción del prompt de texto.
     let enhancedPrompt = imagePrompt;
     if (character.avatar_url) {
       enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
     }
 
-    let pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
-
-    if (character.avatar_url) {
-      pollinationsUrl += `&image=${encodeURIComponent(character.avatar_url)}`;
-    }
+    // ELIMINAMOS la llamada img2img (&image=...) para evitar que se herede rígidamente la ropa/pose del avatar original y genere deformaciones como 4 brazos.
+    const pollinationsUrl = `https://image.pollinations.ai/p/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {

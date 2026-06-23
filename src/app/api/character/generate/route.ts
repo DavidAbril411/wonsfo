@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
       try {
         const sfModel = artStyle === 'Anime'
           ? (process.env.SILICONFLOW_ANIME_MODEL || 'black-forest-labs/FLUX.1-schnell')
-          : (process.env.SILICONFLOW_REAL_MODEL || 'black-forest-labs/FLUX.1-schnell');
+          : (process.env.SILICONFLOW_REAL_MODEL || 'black-forest-labs/FLUX.2-pro');
 
         console.log(`Llamando a SiliconFlow con modelo: ${sfModel}`);
         const sfResponse = await fetch('https://api.siliconflow.com/v1/images/generations', {

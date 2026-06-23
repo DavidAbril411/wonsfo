@@ -150,6 +150,22 @@ export default function ChatPage() {
     }
   }, [chatId, router]);
 
+  const syncMessagesFromDB = async () => {
+    try {
+      const { data: freshMessages } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: true });
+
+      if (freshMessages) {
+        setMessages(freshMessages);
+      }
+    } catch (e) {
+      console.error('Error reloading messages:', e);
+    }
+  };
+
   // Enviar mensaje e iniciar stream SSE
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,19 +245,12 @@ export default function ChatPage() {
       }
 
       // 3. Finalizar streaming y recargar los mensajes desde la base de datos para sincronizar ids reales
-      const { data: freshMessages } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (freshMessages) {
-        setMessages(freshMessages);
-      }
+      await syncMessagesFromDB();
 
     } catch (err) {
       console.error('Error during streaming chat:', err);
       alert('Error de conexión al chatear.');
+      await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);
       setStreamedText('');
@@ -378,19 +387,12 @@ export default function ChatPage() {
       }
 
       // 4. Recargar mensajes actualizados
-      const { data: freshMessages } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (freshMessages) {
-        setMessages(freshMessages);
-      }
+      await syncMessagesFromDB();
 
     } catch (err) {
       console.error('Error during editing message:', err);
       alert('Error de conexión al guardar el mensaje editado.');
+      await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);
       setStreamedText('');
@@ -499,19 +501,12 @@ export default function ChatPage() {
       }
 
       // 6. Recargar mensajes actualizados
-      const { data: freshMessages } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (freshMessages) {
-        setMessages(freshMessages);
-      }
+      await syncMessagesFromDB();
 
     } catch (err) {
       console.error('Error during regeneration:', err);
       alert('Error de conexión al regenerar.');
+      await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);
       setStreamedText('');

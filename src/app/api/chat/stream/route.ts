@@ -274,33 +274,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    let openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterApiKey}`,
-        'HTTP-Referer': 'https://wonsfo.com',
-        'X-Title': 'Wonsfo NSFW Chat Client'
-      },
-      body: JSON.stringify({
-        model: selectedModel,
-        messages: apiMessages,
-        stream: true,
-        temperature: 0.85
-      })
-    });
+    let openRouterResponse: Response;
 
-    if (!openRouterResponse.ok) {
-      const errorText = await openRouterResponse.text();
-      console.warn(`OpenRouter primary model (${selectedModel}) failed:`, errorText);
-
-      // Determinar primer fallback
-      let fallbackModel = 'thedrummer/cydonia-24b-v4.1';
-      if (selectedModel === 'thedrummer/cydonia-24b-v4.1') {
-        fallbackModel = 'thedrummer/skyfall-36b-v2';
-      }
-
-      console.log(`Intentando fallback a: ${fallbackModel}`);
+    // 11. Llamar a OpenRouter con Streaming habilitado (con cascada de fallback resiliente a errores HTTP y de red)
+    try {
       openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -310,21 +287,29 @@ export async function POST(request: NextRequest) {
           'X-Title': 'Wonsfo NSFW Chat Client'
         },
         body: JSON.stringify({
-          model: fallbackModel,
+          model: selectedModel,
           messages: apiMessages,
           stream: true,
           temperature: 0.85
         })
       });
+    } catch (e: any) {
+      console.warn(`OpenRouter primary model (${selectedModel}) fetch exception:`, e.message);
+      openRouterResponse = new Response(e.message || 'Primary fetch error', { status: 500 });
+    }
 
-      if (!openRouterResponse.ok) {
-        const errorText2 = await openRouterResponse.text();
-        console.warn(`OpenRouter secondary fallback (${fallbackModel}) failed:`, errorText2);
+    if (!openRouterResponse.ok) {
+      const errorText = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
+      console.warn(`OpenRouter primary model (${selectedModel}) failed:`, errorText);
 
-        // Segundo fallback extremo: free tier
-        const ultimateFallback = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
-        console.log(`Intentando fallback extremo a: ${ultimateFallback}`);
+      // Determinar primer fallback
+      let fallbackModel = 'thedrummer/cydonia-24b-v4.1';
+      if (selectedModel === 'thedrummer/cydonia-24b-v4.1') {
+        fallbackModel = 'thedrummer/skyfall-36b-v2';
+      }
 
+      console.log(`Intentando fallback a: ${fallbackModel}`);
+      try {
         openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -334,17 +319,50 @@ export async function POST(request: NextRequest) {
             'X-Title': 'Wonsfo NSFW Chat Client'
           },
           body: JSON.stringify({
-            model: ultimateFallback,
+            model: fallbackModel,
             messages: apiMessages,
             stream: true,
             temperature: 0.85
           })
         });
+      } catch (e: any) {
+        console.warn(`OpenRouter secondary fallback (${fallbackModel}) fetch exception:`, e.message);
+        openRouterResponse = new Response(e.message || 'Secondary fetch error', { status: 500 });
+      }
+
+      if (!openRouterResponse.ok) {
+        const errorText2 = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
+        console.warn(`OpenRouter secondary fallback (${fallbackModel}) failed:`, errorText2);
+
+        // Segundo fallback extremo: free tier
+        const ultimateFallback = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
+        console.log(`Intentando fallback extremo a: ${ultimateFallback}`);
+
+        try {
+          openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${openrouterApiKey}`,
+              'HTTP-Referer': 'https://wonsfo.com',
+              'X-Title': 'Wonsfo NSFW Chat Client'
+            },
+            body: JSON.stringify({
+              model: ultimateFallback,
+              messages: apiMessages,
+              stream: true,
+              temperature: 0.85
+            })
+          });
+        } catch (e: any) {
+          console.warn(`OpenRouter ultimate fallback (${ultimateFallback}) fetch exception:`, e.message);
+          openRouterResponse = new Response(e.message || 'Ultimate fetch error', { status: 500 });
+        }
       }
     }
 
     if (!openRouterResponse.ok) {
-      const finalErrorText = await openRouterResponse.text();
+      const finalErrorText = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
       console.error('All OpenRouter fallbacks failed:', finalErrorText);
       return new Response(JSON.stringify({ error: `Error de OpenRouter (todos los modelos fallaron): ${finalErrorText}` }), {
         status: 502,

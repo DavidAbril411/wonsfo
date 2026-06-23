@@ -110,12 +110,14 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
   3. **Instrucciones Literales de Desnudez:** El prompt instruye específicamente que si la escena describe desnudez o relaciones sexuales, se describa en inglés como `completely naked`, `fully nude`, `bare skin`, etc.
   4. **Keywords de Calidad NSFW:** Si el texto describe desnudez, inyectamos palabras clave de control de alta definición (`explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body`) para guiar a la IA en el renderizado anatómico explícito.
   5. **Desactivación de img2img para Escenas:** Eliminamos el parámetro `&image=...` de la URL de Pollinations. Esto elimina la restricción de pose y vestimenta heredada del retrato del avatar, permitiendo generar anatomías limpias y correctas (eliminando el bug de los 4 brazos) desde cero.
-  6. **Migración a gen.pollinations.ai y Modelos de Alta Fidelidad sin Limitaciones:** Descubrimos que el endpoint antiguo `image.pollinations.ai/p/` ignoraba el parámetro `model` y realizaba fallback forzoso al modelo de baja calidad y deforme `sana`. Adicionalmente, los modelos `-pro` (`wan-image-pro`, `grok-imagine-pro`) retornaban error de pago (`402 Payment Required`) debido a saldo 0 en la clave API.
-     Para solucionarlo de forma robusta y económica:
-     * Migramos la base URL al nuevo motor de inferencia de Pollinations: **`https://gen.pollinations.ai/image/`**.
-     * Mapeamos a los modelos de alta definición incluidos bajo la suscripción de clave estándar:
-       * **`flux`** (Flux Schnell): Para estilo fotorrealista (Real), produciendo imágenes ultra detalladas a gran velocidad (~2.3s).
-       * **`klein`** (FLUX.2 Klein 4B): Para estilo Anime (Ilustración), siendo uno de los modelos basados en FLUX.2 más modernos y precisos, con latencias estables de ~5.8s.
+  6. **Integración Inteligente de Modelos Pro con Fallback Automático:**
+     * Por defecto, la aplicación ahora intenta generar imágenes con los modelos de calidad premium y máxima fidelidad fotorrealista/anatómica:
+       * **Estilo Real:** **`wan-image-pro`** (modelo de Alibaba Wan2.1, fotorrealismo de primer nivel, ~3 centavos/imagen).
+       * **Estilo Anime:** **`grok-imagine-pro`** (modelo Grok Image Generator, altísima fidelidad artística, ~7 centavos/imagen).
+     * **Mecanismo de Fallback (Resiliencia):** Si la clave de Pollinations no cuenta con saldo ("Pollen") suficiente, la API de Pollinations responde con un error de pago (`402 Payment Required`). El backend captura este código de forma silenciosa y realiza un **fallback instantáneo** a los modelos económicos:
+       * **Estilo Real (Fallback):** **`flux`** (Flux Schnell, rápido e incluido sin coste adicional en la clave básica).
+       * **Estilo Anime (Fallback):** **`klein`** (FLUX.2 Klein 4B, moderno y estable).
+     * Esto permite que, si el desarrollador o administrador realiza una carga de fondos (Pollen) en Stripe mediante [enter.pollinations.ai](https://enter.pollinations.ai), el sitio comience a renderizar automáticamente las imágenes con calidad Pro de inmediato, mientras que si el saldo está en 0, el sitio sigue funcionando con modelos económicos en lugar de romperse.
 
 ---
 

@@ -271,11 +271,11 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Usamos modelos modernos y eficientes de alta definición en gen.pollinations.ai:
-    // - Para Estilo Anime: 'klein' (FLUX.2 Klein 4B, por su altísima definición y fidelidad en ilustraciones)
-    // - Para Estilo Real: 'flux' (Flux Schnell, por su velocidad extraordinaria y fotorrealismo de primer nivel)
-    const activeModel = artStyle === 'Anime' ? 'klein' : 'flux';
-    const pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    // Por defecto intentamos usar los modelos Pro de calidad premium:
+    // - Para Estilo Anime: 'grok-imagine-pro' (~0.07 pollen/imagen, calidad de ilustración inmejorable)
+    // - Para Estilo Real: 'wan-image-pro' (~0.03 pollen/imagen, fotorrealismo e integridad anatómica insuperables)
+    let activeModel = artStyle === 'Anime' ? 'grok-imagine-pro' : 'wan-image-pro';
+    let pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
     if (pollinationsApiKey) {
@@ -283,9 +283,20 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("Llamando a Pollinations con URL:", pollinationsUrl);
-    const imageResponse = await fetch(pollinationsUrl, {
+    let imageResponse = await fetch(pollinationsUrl, {
       headers: pollinationsHeaders
     });
+
+    // Control de Fallback por Balance Insuficiente (402 Payment Required)
+    if (imageResponse.status === 402) {
+      console.warn(`Balance insuficiente para el modelo Pro (${activeModel}). Realizando fallback al modelo económico...`);
+      activeModel = artStyle === 'Anime' ? 'klein' : 'flux';
+      pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+      console.log("Llamando a Pollinations (Fallback) con URL:", pollinationsUrl);
+      imageResponse = await fetch(pollinationsUrl, {
+        headers: pollinationsHeaders
+      });
+    }
 
     if (!imageResponse.ok) {
       throw new Error(`Error de Pollinations AI: ${imageResponse.statusText}`);

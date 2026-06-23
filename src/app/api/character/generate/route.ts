@@ -271,9 +271,10 @@ export async function POST(request: NextRequest) {
     }
 
     const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // - Para Estilo Anime: 'klein' (FLUX.2 Klein 4B, según preferencia del usuario)
-    // - Para Estilo Real: 'wan-image-pro' (~0.03 pollen/imagen, fotorrealismo e integridad anatómica insuperables)
-    let activeModel = artStyle === 'Anime' ? 'klein' : 'wan-image-pro';
+    // Usamos 'klein' (FLUX.2 Klein 4B, $0.01/imagen) para ambos estilos.
+    // - Es 2-3 escalones superior a Flux Schnell.
+    // - Es completamente libre de censura / moderación de contenido explícito (a diferencia de wan-image-pro).
+    let activeModel = 'klein';
     let pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
     const pollinationsHeaders: HeadersInit = {};
@@ -286,10 +287,10 @@ export async function POST(request: NextRequest) {
       headers: pollinationsHeaders
     });
 
-    // Control de Fallback por Balance Insuficiente (402 Payment Required)
-    if (imageResponse.status === 402) {
-      console.warn(`Balance insuficiente para el modelo (${activeModel}). Realizando fallback al modelo económico...`);
-      activeModel = 'flux'; // Flux Schnell es el modelo gratuito/económico universal
+    // Control de Fallback por Balance Insuficiente (402), Moderación de Contenido (422/400) o cualquier otro error
+    if (!imageResponse.ok || imageResponse.status === 402 || imageResponse.status === 422 || imageResponse.status === 400) {
+      console.warn(`Fallo en el modelo principal (${activeModel}) con estado ${imageResponse.status}. Realizando fallback al modelo económico...`);
+      activeModel = 'flux'; // Flux Schnell es el modelo gratuito/económico universal libre de censura
       pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(imagePrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
       console.log("Llamando a Pollinations (Fallback) con URL:", pollinationsUrl);
       imageResponse = await fetch(pollinationsUrl, {

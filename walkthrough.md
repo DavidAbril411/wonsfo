@@ -110,14 +110,10 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
   3. **Instrucciones Literales de Desnudez:** El prompt instruye específicamente que si la escena describe desnudez o relaciones sexuales, se describa en inglés como `completely naked`, `fully nude`, `bare skin`, etc.
   4. **Keywords de Calidad NSFW:** Si el texto describe desnudez, inyectamos palabras clave de control de alta definición (`explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body`) para guiar a la IA en el renderizado anatómico explícito.
   5. **Desactivación de img2img para Escenas:** Eliminamos el parámetro `&image=...` de la URL de Pollinations. Esto elimina la restricción de pose y vestimenta heredada del retrato del avatar, permitiendo generar anatomías limpias y correctas (eliminando el bug de los 4 brazos) desde cero.
-  6. **Integración Inteligente de Modelos Pro con Fallback Automático:**
-     * Por defecto, la aplicación ahora intenta generar imágenes con los modelos de calidad premium y máxima fidelidad fotorrealista/anatómica:
-       * **Estilo Real:** **`wan-image-pro`** (modelo de Alibaba Wan2.1, fotorrealismo de primer nivel, ~3 centavos/imagen).
-       * **Estilo Anime:** **`grok-imagine-pro`** (modelo Grok Image Generator, altísima fidelidad artística, ~7 centavos/imagen).
-     * **Mecanismo de Fallback (Resiliencia):** Si la clave de Pollinations no cuenta con saldo ("Pollen") suficiente, la API de Pollinations responde con un error de pago (`402 Payment Required`). El backend captura este código de forma silenciosa y realiza un **fallback instantáneo** a los modelos económicos:
-       * **Estilo Real (Fallback):** **`flux`** (Flux Schnell, rápido e incluido sin coste adicional en la clave básica).
-       * **Estilo Anime (Fallback):** **`klein`** (FLUX.2 Klein 4B, moderno y estable).
-     * Esto permite que, si el desarrollador o administrador realiza una carga de fondos (Pollen) en Stripe mediante [enter.pollinations.ai](https://enter.pollinations.ai), el sitio comience a renderizar automáticamente las imágenes con calidad Pro de inmediato, mientras que si el saldo está en 0, el sitio sigue funcionando con modelos económicos en lugar de romperse.
+  6. **Integración Inteligente de Modelos sin Censura y Fallback Automático Completo:**
+     * **Censura en Modelos Pro:** Descubrimos que modelos como `wan-image-pro` y `grok-imagine-pro` integran filtros de seguridad muy estrictos y rechazan prompts con nudismo o erótica explícita devolviendo errores `422 Unprocessable Entity` o `400 Bad Request` en la API de Pollinations.
+     * **Modelo Premium Seleccionado (FLUX.2 Klein 4B):** Configuramos **`klein`** (FLUX.2 Klein 4B, $0.01/imagen) para ambos estilos (Anime y Real). Klein es un modelo generalista excelente basado en FLUX.2, libre de censura, que produce un fotorrealismo de altísima calidad y excelentes ilustraciones sin bloquear los prompts explícitos de rol.
+     * **Mecanismo de Fallback Ampliado (Resiliencia Total):** Ampliamos la captura de errores del backend para interceptar no solo la falta de saldo (`402`), sino también bloqueos de moderación/reincorporaciones (`422`, `400`) o cualquier fallo HTTP. En estos casos, realiza un **fallback silencioso en caliente** a **`flux`** (Flux Schnell), el cual es gratuito, rápido e inmune a filtros de contenido, asegurando que el chat del usuario nunca se rompa.
 
 ---
 

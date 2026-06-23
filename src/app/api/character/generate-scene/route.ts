@@ -200,12 +200,8 @@ export async function POST(request: NextRequest) {
       `Dada la última interacción en un juego de rol interactivo en español:\n` +
       `Mensaje del usuario: "${lastUserText}"\n` +
       `Mensaje del personaje (${character.name}): "${lastAssistantText}"\n\n` +
-      `Genera una descripción física muy corta en inglés (3 a 7 palabras) sobre lo que está haciendo el personaje de IA (${character.name}), su vestimenta y pose en esta escena.\n` +
-      `REGLAS ESTRICTAS DE SEGURIDAD:\n` +
-      `- No describas desnudez explícita, genitales o actos sexuales explícitos.\n` +
-      `- Si la escena es íntima o física, descríbela usando términos artísticos o románticos (ejemplo: "clothed, sitting close on couch", "romantic embrace", "steamy look, clothed", "cuddling in bed with sheets").\n` +
-      `- Asegúrate de que los personajes estén descritos como vestidos (clothed, wearing clothes).\n\n` +
-      `Debes retornar ÚNICAMENTE un objeto JSON válido con la propiedad "scene_description_en" (ejemplo: { "scene_description_en": "clothed, hugging passionately on a dark sofa" }). Sin texto adicional ni formato de código markdown.`;
+      `Genera una descripción física muy corta en inglés (3 a 7 palabras) sobre lo que está haciendo el personaje de IA (${character.name}), su pose y lo que ocurre en esta escena. Describe la acción o el estado de vestimenta/desnudez exacto que se describe en la conversación.\n\n` +
+      `Debes retornar ÚNICAMENTE un objeto JSON válido con la propiedad "scene_description_en" (ejemplo: { "scene_description_en": "nude, sitting close on a dark bed" }). Sin texto adicional ni formato de código markdown.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

@@ -97,7 +97,23 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
-## 7. Verificación y Resultados de Compilación
+## 7. Mejoras de Imágenes de Escena Explícitas y Corrección de Anatomía (Fase 5.8)
+
+* **Diagnóstico de Censura de Ropa y Deformidades:**
+  * **Censura de ropa:** Cuando los personajes declaraban estar sin ropa/desnudos en el juego de rol, las imágenes generadas seguían mostrando ropa. Esto se debía a dos factores:
+    1. El modelo de descripción de escenas (`google/gemini-2.5-flash`) es altamente filtrado y censuraba o evitaba escribir términos de desnudez explícitos en el prompt traducido.
+    2. El parámetro `&image=...` de Pollinations activaba la generación por imagen de referencia (img2img). Dado que el avatar original del personaje siempre tiene ropa, el rediseño mantenía la presencia de vestimenta.
+  * **Deformidades corporales (4 brazos):** img2img forzaba la silueta y postura vertical del avatar en poses dinámicas (como acostada en cama o sentada), haciendo que la IA deformara los brazos y piernas del personaje para tratar de cumplir ambas condiciones a la vez.
+* **Soluciones Técnicas Aplicadas:**
+  1. **Modelo Unfiltered para Escenas:** Migramos el modelo de traducción/resumen en `/api/character/generate-scene/route.ts` al modelo libre **`cognitivecomputations/dolphin-mistral-24b-venice-edition:free`** de OpenRouter. Esto garantiza que no haya filtros al procesar textos de rol eróticos o íntimos explícitos.
+  2. **Compatibilidad en Texto Plano:** Modificamos la respuesta de la traducción a texto plano libre (sin forzar modo JSON en la API) para evitar bloqueos y simplificar el análisis del contenido generado.
+  3. **Instrucciones Literales de Desnudez:** El prompt instruye específicamente que si la escena describe desnudez o relaciones sexuales, se describa en inglés como `completely naked`, `fully nude`, `bare skin`, etc.
+  4. **Keywords de Calidad NSFW:** Si el texto describe desnudez, inyectamos palabras clave de control de alta definición (`explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body`) para guiar a Flux en el renderizado anatómico explícito.
+  5. **Desactivación de img2img para Escenas:** Eliminamos el parámetro `&image=...` de la URL de Pollinations. Esto elimina la restricción de pose y vestimenta heredada del retrato del avatar, permitiendo que **`flux`** y **`flux-realism`** generen anatomías limpias y correctas (eliminando el bug de los 4 brazos) desde cero, manteniendo la coherencia facial mediante la descripción detallada del prompt.
+
+---
+
+## 8. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

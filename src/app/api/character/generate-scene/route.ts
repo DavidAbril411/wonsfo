@@ -281,51 +281,89 @@ export async function POST(request: NextRequest) {
       imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background${nsfwKeywords}`;
     }
 
-    const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
-    // Usamos 'klein' (FLUX.2 Klein 4B, $0.01/imagen) para ambos estilos.
-    // - Es 2-3 escalones superior a Flux Schnell.
-    // - Es completamente libre de censura / moderación de contenido explícito (a diferencia de wan-image-pro).
-    let activeModel = 'klein';
-    
-    // Para conservar el parecido visual y vestimenta del personaje, inyectamos la URL del avatar 
-    // directamente dentro de la descripción del prompt de texto.
-    // Omitimos la referencia de avatar si el personaje está desnudo para evitar que el IP-Adapter de la IA
-    // copie la ropa interior/sujetador que tiene puesto en su avatar de perfil.
+    let imageBuffer: Buffer = Buffer.alloc(0);
     let enhancedPrompt = imagePrompt;
     if (character.avatar_url && !isNude) {
       enhancedPrompt = `Character face reference: ${character.avatar_url}. ${imagePrompt}`;
     }
 
-    // Usamos el endpoint actualizado gen.pollinations.ai/image/ para que respete el parámetro model
-    let pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+    const atlasCloudApiKey = process.env.ATLAS_CLOUD_API_KEY;
+    let successWithAtlas = false;
 
-    const pollinationsHeaders: HeadersInit = {};
-    if (pollinationsApiKey) {
-      pollinationsHeaders['Authorization'] = `Bearer ${pollinationsApiKey}`;
+    if (atlasCloudApiKey) {
+      try {
+        const atlasModel = artStyle === 'Anime'
+          ? (process.env.ATLAS_CLOUD_ANIME_MODEL || 'black-forest-labs/flux-schnell')
+          : (process.env.ATLAS_CLOUD_REAL_MODEL || 'black-forest-labs/flux-dev');
+
+        console.log(`Llamando a Atlas Cloud con modelo: ${atlasModel}`);
+        const atlasResponse = await fetch('https://api.atlascloud.ai/api/v1/model/generateImage', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${atlasCloudApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: atlasModel,
+            prompt: enhancedPrompt,
+            width: 1024,
+            height: 1024,
+            enable_sync_mode: true,
+            enable_base64_output: true
+          })
+        });
+
+        if (!atlasResponse.ok) {
+          const errText = await atlasResponse.text();
+          throw new Error(`Atlas Cloud API error (${atlasResponse.status}): ${errText}`);
+        }
+
+        const resultJson = await atlasResponse.json();
+        const base64Str = resultJson.outputs?.[0];
+        if (!base64Str) {
+          throw new Error(`Atlas Cloud response did not contain outputs: ${JSON.stringify(resultJson)}`);
+        }
+
+        imageBuffer = Buffer.from(base64Str, 'base64');
+        successWithAtlas = true;
+        console.log("Generación exitosa con Atlas Cloud!");
+      } catch (e: any) {
+        console.error("Error en Atlas Cloud, realizando fallback a Pollinations...", e);
+      }
     }
 
-    console.log("Llamando a Pollinations para Escena con URL:", pollinationsUrl);
-    let imageResponse = await fetch(pollinationsUrl, {
-      headers: pollinationsHeaders
-    });
+    if (!successWithAtlas) {
+      const pollinationsApiKey = process.env.POLLINATIONS_API_KEY;
+      let activeModel = 'klein';
+      let pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
 
-    // Control de Fallback por Balance Insuficiente (402), Moderación de Contenido (422/400) o cualquier otro error
-    if (!imageResponse.ok || imageResponse.status === 402 || imageResponse.status === 422 || imageResponse.status === 400) {
-      console.warn(`Fallo en el modelo principal (${activeModel}) con estado ${imageResponse.status}. Realizando fallback al modelo económico...`);
-      activeModel = 'flux'; // Flux Schnell es el modelo gratuito/económico universal libre de censura
-      pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
-      console.log("Llamando a Pollinations (Fallback) con URL:", pollinationsUrl);
-      imageResponse = await fetch(pollinationsUrl, {
+      const pollinationsHeaders: HeadersInit = {};
+      if (pollinationsApiKey) {
+        pollinationsHeaders['Authorization'] = `Bearer ${pollinationsApiKey}`;
+      }
+
+      console.log("Llamando a Pollinations para Escena con URL:", pollinationsUrl);
+      let imageResponse = await fetch(pollinationsUrl, {
         headers: pollinationsHeaders
       });
-    }
 
-    if (!imageResponse.ok) {
-      throw new Error(`Error de Pollinations AI: ${imageResponse.statusText}`);
-    }
+      if (!imageResponse.ok || imageResponse.status === 402 || imageResponse.status === 422 || imageResponse.status === 400) {
+        console.warn(`Fallo en el modelo principal (${activeModel}) con estado ${imageResponse.status}. Realizando fallback al modelo económico...`);
+        activeModel = 'flux';
+        pollinationsUrl = `https://gen.pollinations.ai/image/${encodeURIComponent(enhancedPrompt)}?width=1024&height=1024&nologo=true&safe=false&model=${activeModel}&seed=${Math.floor(Math.random() * 100000)}`;
+        console.log("Llamando a Pollinations (Fallback) con URL:", pollinationsUrl);
+        imageResponse = await fetch(pollinationsUrl, {
+          headers: pollinationsHeaders
+        });
+      }
 
-    const imageArrayBuffer = await imageResponse.arrayBuffer();
-    const imageBuffer = Buffer.from(imageArrayBuffer);
+      if (!imageResponse.ok) {
+        throw new Error(`Error de Pollinations AI: ${imageResponse.statusText}`);
+      }
+
+      const imageArrayBuffer = await imageResponse.arrayBuffer();
+      imageBuffer = Buffer.from(imageArrayBuffer);
+    }
 
     // 8. Subir la imagen generada a Cloudinary
     let finalImageUrl = '';

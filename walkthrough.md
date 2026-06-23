@@ -85,30 +85,19 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 * **Diagnóstico del Error Upstream 429:**
   * Al intentar editar o regenerar, OpenRouter reportaba un error `429 Rate Limited` en el modelo principal (`sao10k/l3.3-euryale-70b`) de su proveedor aguas arriba (NextBit). Dado que la API Route anterior no realizaba ningún manejo de errores, esto colapsaba la petición y resultaba en un error `502 Bad Gateway` en el frontend, bloqueando la conversación.
-* **Manejo de Errores y Fallback en Cascada:**
+* **Manejo de Errores y Fallback en Cascada con Resiliencia Completa:**
   * Implementamos un sistema de reintentos automático y transparente en `/api/chat/stream/route.ts`:
     1. **Primer Intento (Modelo Principal):** Lanza la petición al modelo elegido por el usuario (ej: `sao10k/l3.3-euryale-70b`).
-    2. **Segundo Intento (Primer Fallback):** Si OpenRouter retorna un error (como código 429, 503 o 400), interceptamos la respuesta, emitimos una advertencia en el servidor y re-lanzamos la petición inmediatamente a **`thedrummer/cydonia-24b-v4.1`** (o a `thedrummer/skyfall-36b-v2` si el original era Cydonia).
+    2. **Segundo Intento (Primer Fallback):** Si OpenRouter retorna un error (como código 429, 503 o 400), o si ocurre una excepción de red/DNS en el servidor, interceptamos el error y re-lanzamos la petición inmediatamente a **`thedrummer/cydonia-24b-v4.1`** (o a `thedrummer/skyfall-36b-v2` si el original era Cydonia).
     3. **Tercer Intento (Último Recurso):** Si el primer fallback también falla, el sistema realiza un último reintento utilizando el modelo gratuito y de alta tolerancia **`cognitivecomputations/dolphin-mistral-24b-venice-edition:free`**, asegurando que el flujo de streaming al usuario nunca se interrumpa.
+  * **Exclusiones de Red:** Cada llamada de fetch en la cascada de fallbacks fue envuelta en bloques `try-catch` para capturar timeouts y excepciones de conexión, evitando excepciones fatales de servidor.
+* **Sincronización Robusta en el Cliente y Prevención de Desincronización de UI:**
+  * En la vista de chat (`src/app/chat/[id]/page.tsx`), consolidamos las consultas duplicadas para recargar el historial de mensajes de la base de datos en una función centralizada `syncMessagesFromDB()`.
+  * Invocamos `syncMessagesFromDB()` en los bloques `catch` de `handleSendMessage`, `saveEditedMessage`, y `handleRegenerate` tras alertar del fallo de conexión. De esta forma, si el streaming de la IA falla, la interfaz carga el estado real de PostgreSQL, evitando que los mensajes queden colgados con IDs temporales o que la interfaz se desincronice.
 
 ---
 
-## 4. Personalización del Usuario: Nombre y Género en los Chats (Fase 5.5)
-
-* **Nuevos Campos en el Perfil y Registro:**
-  * Modificamos la tabla de `public.profiles` en la base de datos Supabase para agregar las columnas `display_name` (Nombre Real) y `gender` (Género).
-  * **Pantalla de Registro (`src/app/login/page.tsx`):** Añadimos controles dinámicos para que, al activar la pestaña de "Registrarse", el usuario pueda ingresar su nombre real y su género (Hombre, Mujer, Trans) desde el formulario inicial.
-  * **Pantalla de Perfil (`src/app/profile/page.tsx`):** Agregamos los inputs correspondientes para que los usuarios puedan consultar y editar su nombre real y género en cualquier momento de forma segura.
-  * **Trigger de Creación (`supabase_schema.sql`):** Modificamos la función del trigger PostgreSQL `handle_new_user()` para extraer e insertar el `display_name` y `gender` desde la metadata cruda de registro de Supabase Auth (`new.raw_user_meta_data`).
-* **Integración y Personalización del Chat:**
-  * Actualizamos el endpoint `/api/chat/stream/route.ts` para recuperar el nombre real y género del usuario.
-  * **Instrucciones en Prompt:** Inyectamos una sección de metadatos del usuario al prompt principal de OpenRouter:
-    * Se le ordena estrictamente dirigirse al usuario por su nombre real (`display_name`) en los momentos adecuados de los diálogos.
-    * Se le indica el género del usuario (`gender`) mapeando de forma explícita las reglas gramaticales y adjetivos según corresponda (adjetivos masculinos para Hombre, femeninos para Mujer, etc.) para adaptar pronombres y diálogos de forma impecable.
-
----
-
-## 3. Verificación y Resultados de Compilación
+## 7. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

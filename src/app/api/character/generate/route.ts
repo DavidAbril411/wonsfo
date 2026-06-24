@@ -321,7 +321,7 @@ export async function POST(request: NextRequest) {
     if (!success && airforceApiKey) {
       const airforceModel = artStyle === 'Anime'
         ? (process.env.AIRFORCE_ANIME_MODEL || 'flux-2-klein-4b')
-        : (process.env.AIRFORCE_REAL_MODEL || 'flux-2-dev');
+        : (process.env.AIRFORCE_REAL_MODEL || 'flux-2-klein-4b');
 
       let attempts = 0;
       while (attempts < 3 && !success) {

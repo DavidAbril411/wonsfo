@@ -140,7 +140,20 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
-## 11. Verificación y Resultados de Compilación
+## 11. Ajuste Fino de Lógica de Inferencia: Modelos Especializados por Endpoint (Fase 6.1)
+
+* **Generación del Personaje Principal (No NSFW):**
+  * Cambiamos el modelo por defecto de Api.Airforce en `/api/character/generate` a **`flux-2-dev`**. 
+  * *Razón:* Los avatares principales son imágenes seguras (con ropa y retratos normales), por lo que se beneficia de la mayor resolución, definición y rapidez del modelo `flux-2-dev` sin riesgo de censura upstream en este paso.
+* **Generación de Escenas del Chat (NSFW/Explícitas):**
+  * Implementamos un flujo de cascada interno en `/api/character/generate-scene`:
+    1. Intenta generar con **`flux-2-klein-9b`** (máxima calidad sin censura).
+    2. Si `flux-2-klein-9b` devuelve un error (400, etc.) o entrega un array vacío (`data: []`), realiza un fallback inmediato a **`flux-2-klein-4b`** (modelo Klein más ligero y rápido, también sin censura).
+    3. Si ambos fallan (por rate limits globales 429 de Airforce), continúa con el flujo habitual (SiliconFlow -> Pollinations).
+
+---
+
+## 12. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

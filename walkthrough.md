@@ -132,7 +132,15 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
-## 9. Verificación y Resultados de Compilación
+## 10. Mejora del Modelo Api.Airforce a FLUX.2 Klein 9B (Fase 6.0)
+
+* **Detalle de la Mejora:**
+  * Reemplazamos el modelo por defecto de Api.Airforce `'flux-2-klein-4b'` por su versión superior de 9 mil millones de parámetros **`'flux-2-klein-9b'`** en los endpoints de generación de avatar (`/api/character/generate/route.ts`) y de escenas del chat (`/api/character/generate-scene/route.ts`).
+  * Esta actualización aprovecha que Api.Airforce no descuenta saldo por este modelo (clasificado como "Free" en su dashboard de modelos), ofreciendo a los usuarios imágenes con una calidad anatómica notablemente superior, mejor fidelidad en rostros y mayor nivel de detalle, sin costes adicionales y manteniendo su bypass frente a restricciones de contenido (censura).
+
+---
+
+## 11. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

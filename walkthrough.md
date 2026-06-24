@@ -117,7 +117,22 @@ Ampliamos el endpoint `/api/character/generate` para soportar las nuevas variabl
 
 ---
 
-## 8. Verificación y Resultados de Compilación
+## 8. Prioridades de Proveedores de Imagen y Fallback (Fase 5.9)
+
+* **Diagnóstico de Restricciones y Censura:**
+  * Se observó que **Api.Airforce** presenta un nivel significativamente menor de restricciones (censura de contenido erótico/NSFW) en comparación con **SiliconFlow**.
+  * Para maximizar la tasa de éxito al generar escenas explícitas y detalladas de acuerdo con la narrativa del juego de rol erótico, es preferible utilizar **Api.Airforce** por encima de **SiliconFlow**.
+* **Reordenamiento de Proveedores Aplicado:**
+  * Reestructuramos el flujo de llamadas a APIs en caliente para los endpoints de generación de personajes (`/api/character/generate/route.ts`) y generación de escenas del chat (`/api/character/generate-scene/route.ts`).
+  * El nuevo orden de prioridad y reintentos (fallback chain) es:
+    1. **Atlas Cloud** (si `ATLAS_CLOUD_API_KEY` está configurada)
+    2. **Api.Airforce** (si `AIRFORCE_API_KEY` está configurada; cargada con saldo de prueba)
+    3. **SiliconFlow** (si `SILICONFLOW_API_KEY` está configurada)
+    4. **Pollinations** (modelo Klein / Flux Schnell como fallback final sin censura)
+
+---
+
+## 9. Verificación y Resultados de Compilación
 
 1.  **Compilación TypeScript y Next.js (Local):**
     Ejecutamos `npm run build` confirmando que Next.js compile todas las páginas estáticas y dinámicas y exporte el compilado standalone sin fallos de tipos o de Turbopack.

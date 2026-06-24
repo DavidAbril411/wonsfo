@@ -334,63 +334,66 @@ export async function POST(request: NextRequest) {
     }
 
     if (!success && airforceApiKey) {
-      const airforceModel = artStyle === 'Anime'
-        ? (process.env.AIRFORCE_ANIME_MODEL || 'flux-2-klein-9b')
-        : (process.env.AIRFORCE_REAL_MODEL || 'flux-2-klein-9b');
+      const airforceModels = artStyle === 'Anime'
+        ? ['flux-2-klein-9b', 'flux-2-klein-4b']
+        : ['flux-2-klein-9b', 'flux-2-klein-4b'];
 
-      let attempts = 0;
-      while (attempts < 3 && !success) {
-        try {
-          console.log(`Llamando a Api.Airforce con modelo: ${airforceModel} (Intento ${attempts + 1})`);
-          const airforceResponse = await fetch('https://api.airforce/v1/images/generations', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${airforceApiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: airforceModel,
-              prompt: enhancedPrompt,
-              n: 1,
-              size: '1024x1024'
-            })
-          });
+      for (const model of airforceModels) {
+        if (success) break;
+        let attempts = 0;
+        while (attempts < 3 && !success) {
+          try {
+            console.log(`Llamando a Api.Airforce con modelo: ${model} (Intento ${attempts + 1})`);
+            const airforceResponse = await fetch('https://api.airforce/v1/images/generations', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${airforceApiKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                model: model,
+                prompt: enhancedPrompt,
+                n: 1,
+                size: '1024x1024'
+              })
+            });
 
-          if (airforceResponse.status === 429) {
-            console.warn("Api.Airforce 429 (Rate Limit). Esperando 2 segundos...");
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (airforceResponse.status === 429) {
+              console.warn("Api.Airforce 429 (Rate Limit). Esperando 2 segundos...");
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              attempts++;
+              continue;
+            }
+
+            if (!airforceResponse.ok) {
+              const errText = await airforceResponse.text();
+              throw new Error(`Api.Airforce error (${airforceResponse.status}): ${errText}`);
+            }
+
+            const resultJson = await airforceResponse.json();
+            const imageUrl = resultJson.data?.[0]?.url;
+            if (!imageUrl) {
+              console.warn(`Api.Airforce devolvió data vacía con modelo ${model}. Esperando 2 segundos...: ${JSON.stringify(resultJson)}`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              attempts++;
+              continue;
+            }
+
+            const fetchImage = await fetch(imageUrl);
+            if (!fetchImage.ok) {
+              throw new Error(`Failed to fetch image from Api.Airforce: ${fetchImage.statusText}`);
+            }
+
+            const imageArrayBuffer = await fetchImage.arrayBuffer();
+            imageBuffer = Buffer.from(imageArrayBuffer);
+            success = true;
+            console.log(`Generación exitosa con Api.Airforce usando modelo ${model}!`);
+          } catch (e: any) {
+            console.error(`Error en Api.Airforce con modelo ${model} (Intento ${attempts + 1}):`, e);
             attempts++;
-            continue;
-          }
-
-          if (!airforceResponse.ok) {
-            const errText = await airforceResponse.text();
-            throw new Error(`Api.Airforce error (${airforceResponse.status}): ${errText}`);
-          }
-
-          const resultJson = await airforceResponse.json();
-          const imageUrl = resultJson.data?.[0]?.url;
-          if (!imageUrl) {
-            console.warn(`Api.Airforce devolvió data vacía. Esperando 2 segundos...: ${JSON.stringify(resultJson)}`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            attempts++;
-            continue;
-          }
-
-          const fetchImage = await fetch(imageUrl);
-          if (!fetchImage.ok) {
-            throw new Error(`Failed to fetch image from Api.Airforce: ${fetchImage.statusText}`);
-          }
-
-          const imageArrayBuffer = await fetchImage.arrayBuffer();
-          imageBuffer = Buffer.from(imageArrayBuffer);
-          success = true;
-          console.log("Generación exitosa con Api.Airforce!");
-        } catch (e: any) {
-          console.error(`Error en Api.Airforce (Intento ${attempts + 1}):`, e);
-          attempts++;
-          if (attempts < 3) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            if (attempts < 3) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
           }
         }
       }

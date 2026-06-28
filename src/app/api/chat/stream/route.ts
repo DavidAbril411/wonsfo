@@ -53,14 +53,16 @@ export async function POST(request: NextRequest) {
     const character = chat.character;
     const country = character.default_country || 'Neutro';
 
-    // 3. Obtener el perfil del usuario para validar si es Premium e info del usuario
+    // 3. Obtener el perfil del usuario para validar tokens e info del usuario
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('is_premium, display_name, gender')
+      .select('tokens, unlimited_tokens, display_name, gender')
       .eq('id', user.id)
       .single();
 
-    const isPremium = profileError ? false : !!profile?.is_premium;
+    const tokens = profile?.tokens || 0;
+    const unlimitedTokens = !!profile?.unlimited_tokens;
+    const isPremium = unlimitedTokens || tokens > 0; // dialectos autorizados si tiene tokens
     const userDisplayName = profile?.display_name || '';
     const userGender = profile?.gender || '';
 
@@ -84,12 +86,12 @@ export async function POST(request: NextRequest) {
     const accumulatedAfter = accumulatedBefore + newIntimacyScore;
 
     // 6. Verificar el Muro de Pago (Paywall Cliffhanger)
-    // Se dispara si: NO es Premium AND el score superó el umbral (80)
+    // Se dispara si: NO tiene tokens ilimitados AND el score superó el umbral (80)
     const paywallThreshold = 80;
-    if (!isPremium && shouldTriggerPaywall(accumulatedAfter, paywallThreshold)) {
+    if (!unlimitedTokens && shouldTriggerPaywall(accumulatedAfter, paywallThreshold)) {
       const cliffhangerText = 
         `Te acercas lentamente, sintiendo el calor de su cuerpo y la agitación de su respiración. Todo está listo para el momento que tanto esperabas, pero...\n\n` +
-        `🔒 **[ESCENA BLOQUEADA]** Has alcanzado el clímax narrativo de esta historia. Para desbloquear esta escena íntima, configurar dialectos locales y chatear sin límites, activa tu cuenta **Premium** en tu perfil.`;
+        `🔒 **[ESCENA BLOQUEADA]** Has alcanzado el clímax narrativo de esta historia. Para desbloquear esta escena íntima y continuar chateando, presiona el botón de **Desbloquear por 5 Tokens 🪙** o recarga créditos en tu perfil.`;
 
       // Guardar el mensaje del usuario (con su score de clímax)
       await supabaseAdmin.from('chat_messages').insert({

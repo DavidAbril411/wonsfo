@@ -18,8 +18,8 @@ function RedirectHandler() {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        // Redirigir a login si no está autenticado, pasando el characterId para volver a este flujo si es posible
-        router.push(`/login?characterId=${characterId}`);
+        // Redirigir al chat de invitado si no está autenticado
+        router.push(`/chat/guest/${characterId}`);
         return;
       }
 

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { User, Sparkles, Check, X, ShieldAlert, LogOut } from 'lucide-react';
+import { User, Sparkles, Check, X, ShieldAlert, LogOut, Coins } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -12,6 +12,9 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState('');
   const [gender, setGender] = useState('');
   const [isPremium, setIsPremium] = useState(false);
+  const [tokens, setTokens] = useState(0);
+  const [unlimitedTokens, setUnlimitedTokens] = useState(false);
+  const [buyingPackId, setBuyingPackId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -37,6 +40,8 @@ export default function ProfilePage() {
         setDisplayName(profile.display_name || '');
         setGender(profile.gender || '');
         setIsPremium(!!profile.is_premium);
+        setTokens(profile.tokens || 0);
+        setUnlimitedTokens(!!profile.unlimited_tokens);
       }
       setLoading(false);
     }
@@ -57,7 +62,6 @@ export default function ProfilePage() {
           username,
           display_name: displayName,
           gender,
-          is_premium: isPremium,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -75,6 +79,38 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
+  };
+
+  const handleBuyTokens = async (packId: string) => {
+    setBuyingPackId(packId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const res = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ packId })
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // Redirigir a Stripe
+      } else {
+        alert(data.error || 'Error al procesar el pago con Stripe.');
+      }
+    } catch (err: any) {
+      console.error('Stripe redirect error:', err);
+      alert('Error inesperado al conectar con Stripe.');
+    } finally {
+      setBuyingPackId(null);
+    }
   };
 
   if (loading) {
@@ -163,70 +199,98 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Simulación Premium */}
+        {/* Tienda de Tokens */}
         <div className="rounded-xl border border-zinc-900 bg-zinc-900/20 p-6 space-y-6">
           <div className="flex items-center justify-between border-b border-zinc-900 pb-3">
             <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-zinc-400" />
-              Suscripción Premium
+              <Coins className="h-4 w-4 text-pink-400" />
+              Tienda de Tokens 🪙
             </h3>
-            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-              isPremium 
-                ? 'bg-gradient-to-r from-pink-500 to-violet-600 text-zinc-50 shadow-[0_0_10px_rgba(236,72,153,0.2)]' 
-                : 'bg-zinc-900 text-zinc-500 border border-zinc-850'
-            }`}>
-              {isPremium ? 'ACTIVA' : 'INACTIVA'}
+            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-zinc-900 text-pink-400 border border-zinc-850">
+              {unlimitedTokens ? 'TOKENS ILIMITADOS (ADMIN)' : `${tokens} DISPONIBLES`}
             </span>
           </div>
 
-          {/* Advertencia del simulador */}
-          <div className="rounded-xl bg-zinc-950 border border-zinc-900 p-4 text-xs text-zinc-400 flex items-start gap-3">
-            <ShieldAlert className="h-5 w-5 shrink-0 text-zinc-500" />
-            <div>
-              <p className="font-semibold text-zinc-300">Simulador de Facturación Activado</p>
-              <p className="mt-0.5 leading-relaxed">Puedes alternar tu estado Premium libremente para probar los límites y las características de cobro del clímax y configuración de dialecto del MVP sin requerir pagos reales.</p>
-            </div>
+          {/* Información del Costo de Tokens */}
+          <div className="rounded-xl bg-zinc-950 border border-zinc-900 p-4 text-xs text-zinc-400">
+            <p className="font-semibold text-zinc-350 mb-2">Costos del Sistema:</p>
+            <ul className="space-y-1.5 list-disc list-inside">
+              <li><span className="text-zinc-200">Crear un Agente Personalizado</span>: 5 Tokens</li>
+              <li><span className="text-zinc-200">Generar una Escena de Imagen (📸)</span>: 2 Tokens</li>
+              <li><span className="text-zinc-200">Desbloquear el Clímax de un Chat</span>: 5 Tokens</li>
+              <li><span className="text-zinc-200">Enviar mensajes de conversación</span>: <span className="text-emerald-400 font-semibold">¡Totalmente Gratis!</span></li>
+            </ul>
           </div>
 
-          {/* Toggle de Simulación */}
-          <div className="flex items-center justify-between bg-zinc-900/30 border border-zinc-900 rounded-xl p-4">
-            <div>
-              <p className="text-sm font-medium text-zinc-200">Simular Cuenta Premium</p>
-              <p className="text-xs text-zinc-500 mt-0.5">Habilita acentos por país, ritmo de clímax y modelos premium (Skyfall 36B, Euryale 70B, Cydonia 24B).</p>
+          {/* Listado de Paquetes de Stripe */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Pack 10 */}
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-4 flex flex-col justify-between hover:border-zinc-800 transition-colors">
+              <div>
+                <h4 className="text-sm font-bold text-zinc-200">Pack Bronce</h4>
+                <p className="text-2xl font-extrabold text-pink-400 mt-1.5">10 <span className="text-xs font-normal text-zinc-400">Tokens</span></p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">$0.13 por token</p>
+              </div>
+              <button
+                type="button"
+                disabled={buyingPackId !== null || unlimitedTokens}
+                onClick={() => handleBuyTokens('pack_10')}
+                className="mt-4 w-full rounded-lg bg-zinc-900 hover:bg-zinc-850 py-2 text-xs font-bold text-zinc-300 border border-zinc-800 transition-colors disabled:opacity-50"
+              >
+                {buyingPackId === 'pack_10' ? 'Cargando...' : 'Comprar por $1.30 USD'}
+              </button>
             </div>
-            
-            <button
-              type="button"
-              onClick={() => setIsPremium(!isPremium)}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-250 ease-in-out focus:outline-hidden ${
-                isPremium ? 'bg-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.45)]' : 'bg-zinc-800'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-zinc-950 shadow-md ring-0 transition duration-250 ease-in-out ${
-                  isPremium ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          </div>
 
-          {/* Características Premium */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-zinc-400">
-            <div className="flex items-start gap-2">
-              <Check className="h-4 w-4 text-pink-400 shrink-0" />
-              <span>Acentos y dialectos locales ilimitados (Argentina, España, México, Colombia).</span>
+            {/* Pack 20 */}
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-4 flex flex-col justify-between hover:border-zinc-800 transition-colors">
+              <div>
+                <h4 className="text-sm font-bold text-zinc-200">Pack Plata</h4>
+                <p className="text-2xl font-extrabold text-pink-400 mt-1.5">20 <span className="text-xs font-normal text-zinc-400">Tokens</span></p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">$0.10 por token</p>
+              </div>
+              <button
+                type="button"
+                disabled={buyingPackId !== null || unlimitedTokens}
+                onClick={() => handleBuyTokens('pack_20')}
+                className="mt-4 w-full rounded-lg bg-zinc-900 hover:bg-zinc-850 py-2 text-xs font-bold text-zinc-300 border border-zinc-800 transition-colors disabled:opacity-50"
+              >
+                {buyingPackId === 'pack_20' ? 'Cargando...' : 'Comprar por $2.00 USD'}
+              </button>
             </div>
-            <div className="flex items-start gap-2">
-              <Check className="h-4 w-4 text-pink-400 shrink-0" />
-              <span>Ajustar velocidad del Clímax Narrativo (Rápido, Estándar, Lento).</span>
+
+            {/* Pack 60 */}
+            <div className="rounded-xl border border-pink-500/20 bg-pink-500/5 p-4 flex flex-col justify-between relative hover:border-pink-500/30 transition-colors">
+              <span className="absolute -top-2.5 right-3 rounded-md bg-pink-500 px-1.5 py-0.5 text-[8px] font-bold text-zinc-50 tracking-wider">MÁS POPULAR</span>
+              <div>
+                <h4 className="text-sm font-bold text-zinc-200">Pack Oro</h4>
+                <p className="text-2xl font-extrabold text-pink-400 mt-1.5">60 <span className="text-xs font-normal text-zinc-400">Tokens</span></p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">$0.08 por token</p>
+              </div>
+              <button
+                type="button"
+                disabled={buyingPackId !== null || unlimitedTokens}
+                onClick={() => handleBuyTokens('pack_60')}
+                className="mt-4 w-full rounded-lg bg-gradient-to-r from-pink-500 to-violet-600 py-2 text-xs font-bold text-zinc-50 transition-opacity disabled:opacity-50"
+              >
+                {buyingPackId === 'pack_60' ? 'Cargando...' : 'Comprar por $4.80 USD'}
+              </button>
             </div>
-            <div className="flex items-start gap-2">
-              <Check className="h-4 w-4 text-pink-400 shrink-0" />
-              <span>Acceso a modelos de alta inteligencia de OpenRouter sin cortes.</span>
-            </div>
-            <div className="flex items-start gap-2">
-              <Check className="h-4 w-4 text-pink-400 shrink-0" />
-              <span>Inferencia de texto descriptivo y libre de censura con Euryale 70B.</span>
+
+            {/* Pack 150 */}
+            <div className="rounded-xl border border-zinc-900 bg-zinc-950/40 p-4 flex flex-col justify-between hover:border-zinc-800 transition-colors">
+              <div>
+                <h4 className="text-sm font-bold text-zinc-200">Pack Platino</h4>
+                <p className="text-2xl font-extrabold text-pink-400 mt-1.5">150 <span className="text-xs font-normal text-zinc-400">Tokens</span></p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">$0.06 por token</p>
+              </div>
+              <button
+                type="button"
+                disabled={buyingPackId !== null || unlimitedTokens}
+                onClick={() => handleBuyTokens('pack_150')}
+                className="mt-4 w-full rounded-lg bg-zinc-900 hover:bg-zinc-850 py-2 text-xs font-bold text-zinc-300 border border-zinc-800 transition-colors disabled:opacity-50"
+              >
+                {buyingPackId === 'pack_150' ? 'Cargando...' : 'Comprar por $9.00 USD'}
+              </button>
             </div>
           </div>
         </div>

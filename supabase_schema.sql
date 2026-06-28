@@ -7,6 +7,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   username TEXT UNIQUE,
   is_premium BOOLEAN DEFAULT FALSE,
+  tokens INTEGER DEFAULT 5,
+  unlimited_tokens BOOLEAN DEFAULT FALSE,
   display_name TEXT,
   gender TEXT
 );
@@ -24,10 +26,12 @@ CREATE POLICY "Los usuarios pueden actualizar su propio perfil"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, username, is_premium, display_name, gender)
+  INSERT INTO public.profiles (id, username, is_premium, tokens, unlimited_tokens, display_name, gender)
   VALUES (
     new.id, 
     split_part(new.email, '@', 1), 
+    FALSE,
+    5, -- 5 tokens de bienvenida
     FALSE,
     coalesce(new.raw_user_meta_data->>'display_name', ''),
     coalesce(new.raw_user_meta_data->>'gender', '')
@@ -50,7 +54,8 @@ CREATE TABLE IF NOT EXISTS public.characters (
   initial_greeting TEXT NOT NULL,
   avatar_url TEXT,
   default_language TEXT DEFAULT 'es',
-  default_country TEXT DEFAULT 'Neutro'
+  default_country TEXT DEFAULT 'Neutro',
+  is_public BOOLEAN DEFAULT FALSE
 );
 
 -- Habilitar RLS en personajes
@@ -153,3 +158,20 @@ BEGIN
   LIMIT match_count;
 END;
 $$;
+
+-- Trigger de seguridad para proteger tokens y premium de cambios desde el cliente
+CREATE OR REPLACE FUNCTION public.protect_tokens_on_update()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF auth.role() = 'authenticated' THEN
+    NEW.tokens := OLD.tokens;
+    NEW.unlimited_tokens := OLD.unlimited_tokens;
+    NEW.is_premium := OLD.is_premium;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_profile_update_protect_tokens
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW EXECUTE FUNCTION public.protect_tokens_on_update();

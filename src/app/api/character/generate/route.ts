@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
+import { TOKEN_COSTS } from '@/lib/token-costs';
 
 // Configurar Cloudinary
 const isCloudinaryConfigured = 
@@ -154,17 +155,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Sesión inválida o expirada.' }, { status: 401 });
     }
 
-    // 2. Verificar estado Premium
+    // 2. Verificar saldo de tokens
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('is_premium')
+      .select('tokens, unlimited_tokens')
       .eq('id', user.id)
       .single();
 
-    const isPremium = profileError ? false : !!profile?.is_premium;
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'No se pudo cargar el perfil de usuario.' }, { status: 500 });
+    }
 
-    if (!isPremium) {
-      return NextResponse.json({ error: 'Esta característica requiere una cuenta Premium.' }, { status: 403 });
+    const { tokens = 0, unlimited_tokens = false } = profile;
+    const cost = TOKEN_COSTS.CREATE_CHARACTER;
+
+    if (!unlimited_tokens && tokens < cost) {
+      return NextResponse.json({ error: `Tokens insuficientes. Crear un personaje cuesta ${cost} tokens, pero tienes ${tokens}.` }, { status: 403 });
     }
 
     // 3. Generar la descripción y saludo del personaje usando OpenRouter
@@ -502,6 +508,18 @@ export async function POST(request: NextRequest) {
       startLocation
     };
     const metadataString = `\n\n<!-- METADATA: ${JSON.stringify(metadata)} -->`;
+
+    // Descontar tokens si no es ilimitado
+    if (!unlimited_tokens) {
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ tokens: Math.max(0, tokens - cost) })
+        .eq('id', user.id);
+      
+      if (updateError) {
+        console.error('Error deducting tokens for character creation:', updateError);
+      }
+    }
 
     // 6. Registrar en Supabase
     const { data: newCharacter, error: insertError } = await supabaseAdmin

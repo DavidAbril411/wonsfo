@@ -83,10 +83,10 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[], mess
       const highPhysicalKws = ['desnud', 'gemir', 'gemid', 'excitad', 'hacer el amor', 'tocar', 'toca', 'acariciar', 'beso', 'besar', 'sexo', 'coger', 'placer'];
       const isHighPhysical = highPhysicalKws.some(pk => normalizedKw.includes(pk) || pk.includes(normalizedKw));
       if (isHighPhysical) {
-        if (messageCount < 10) {
+        if (messageCount < 20) {
           // Penalizar fuertemente al principio (10%) para forzar slow burn
           keywordScore += score * 0.1;
-        } else if (messageCount < 20) {
+        } else if (messageCount < 40) {
           // Penalización moderada (50%)
           keywordScore += score * 0.5;
         } else {
@@ -95,7 +95,7 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[], mess
         }
       } else {
         // Para otras palabras íntimas no físicas
-        if (messageCount >= 20) {
+        if (messageCount >= 40) {
           keywordScore += score * 1.3;
         } else {
           keywordScore += score;
@@ -110,9 +110,9 @@ export function evaluateMessageIntimacy(text: string, embedding?: number[], mess
     const similarity = cosineSimilarity(embedding, CLIMAX_ANCHOR_VECTOR);
     // Escalar la similitud del coseno (-1 a 1) a un score positivo
     let tempSemantic = Math.max(0, similarity) * 50;
-    if (messageCount < 10) {
+    if (messageCount < 20) {
       tempSemantic *= 0.1;
-    } else if (messageCount < 20) {
+    } else if (messageCount < 40) {
       tempSemantic *= 0.5;
     } else {
       tempSemantic *= 1.5;

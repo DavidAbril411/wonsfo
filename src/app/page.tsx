@@ -50,13 +50,57 @@ export default function Dashboard() {
       
       if (session) {
         setUser(session.user);
-        // Cargar perfil Premium
+        // Cargar perfil e investigar si está completo
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_premium')
+          .select('is_premium, display_name, gender')
           .eq('id', session.user.id)
           .single();
-        setIsPremium(!!profile?.is_premium);
+
+        if (profile) {
+          setIsPremium(!!profile.is_premium);
+          if (!profile.display_name || !profile.gender) {
+            router.push('/profile-setup');
+            return;
+          }
+
+          // Verificar si hay chats de invitados para migrar
+          let guestChatKey = '';
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i) || '';
+            if (key.startsWith('guest_chat_')) {
+              guestChatKey = key;
+              break;
+            }
+          }
+
+          if (guestChatKey) {
+            const charId = guestChatKey.replace('guest_chat_', '');
+            const stored = localStorage.getItem(guestChatKey);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                const response = await fetch('/api/chat/migrate-guest', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`
+                  },
+                  body: JSON.stringify({ characterId: charId, messages: parsed })
+                });
+
+                const data = await response.json();
+                if (response.ok && data.success) {
+                  localStorage.removeItem(guestChatKey);
+                  router.push(`/chat/${data.chatId}`);
+                  return;
+                }
+              } catch (e) {
+                console.error('Failed to migrate guest chat:', e);
+              }
+            }
+          }
+        }
       }
 
       try {

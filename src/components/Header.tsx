@@ -4,13 +4,15 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Flame, User, LogOut, Sparkles, MessageSquarePlus } from 'lucide-react';
+import { Flame, User, LogOut, Sparkles, MessageSquarePlus, Coins } from 'lucide-react';
 
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isPremium, setIsPremium] = useState(false);
+  const [tokens, setTokens] = useState(0);
+  const [unlimitedTokens, setUnlimitedTokens] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,17 +22,21 @@ export default function Header() {
       if (session?.user) {
         setUser(session.user);
         
-        // Obtener estado premium
+        // Obtener estado premium y tokens
         const { data: profile } = await supabase
           .from('profiles')
-          .select('is_premium')
+          .select('is_premium, tokens, unlimited_tokens')
           .eq('id', session.user.id)
           .single();
           
         setIsPremium(!!profile?.is_premium);
+        setTokens(profile?.tokens || 0);
+        setUnlimitedTokens(!!profile?.unlimited_tokens);
       } else {
         setUser(null);
         setIsPremium(false);
+        setTokens(0);
+        setUnlimitedTokens(false);
       }
       setLoading(false);
     }
@@ -44,13 +50,19 @@ export default function Header() {
         // Recargar perfil
         supabase
           .from('profiles')
-          .select('is_premium')
+          .select('is_premium, tokens, unlimited_tokens')
           .eq('id', session.user.id)
           .single()
-          .then(({ data }) => setIsPremium(!!data?.is_premium));
+          .then(({ data }) => {
+            setIsPremium(!!data?.is_premium);
+            setTokens(data?.tokens || 0);
+            setUnlimitedTokens(!!data?.unlimited_tokens);
+          });
       } else {
         setUser(null);
         setIsPremium(false);
+        setTokens(0);
+        setUnlimitedTokens(false);
       }
     });
 
@@ -105,17 +117,13 @@ export default function Header() {
           <div className="flex items-center gap-4">
             {!loading && user ? (
               <>
-                {/* Premium Badge / Indicator */}
+                {/* Token Balance Badge */}
                 <Link 
                   href="/profile" 
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold tracking-wider border transition-all ${
-                    isPremium 
-                      ? 'bg-gradient-to-r from-pink-500 to-violet-600 text-zinc-50 border-transparent shadow-[0_0_10px_rgba(236,72,153,0.25)] hover:opacity-90' 
-                      : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:border-zinc-700'
-                  }`}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold tracking-wider border bg-gradient-to-r from-pink-500/10 to-purple-500/10 text-pink-300 border-pink-500/30 hover:border-pink-500/50 shadow-[0_0_10px_rgba(236,72,153,0.05)] transition-all hover:opacity-90"
                 >
-                  <Sparkles className={`h-3 w-3 ${isPremium ? 'fill-zinc-50' : ''}`} />
-                  {isPremium ? 'PREMIUM' : 'FREE'}
+                  <Coins className="h-3.5 w-3.5 text-pink-400" />
+                  <span>{unlimitedTokens ? 'ILIMITADOS' : `${tokens} TOKENS`}</span>
                 </Link>
 
                 {/* Profile Link - Desktop only */}

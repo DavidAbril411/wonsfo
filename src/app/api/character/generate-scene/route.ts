@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
+import { TOKEN_COSTS } from '@/lib/token-costs';
 
 // Configurar Cloudinary
 const isCloudinaryConfigured = 
@@ -129,6 +130,24 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Sesión inválida.' }, { status: 401 });
+    }
+
+    // Verificar saldo de tokens
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('tokens, unlimited_tokens')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return NextResponse.json({ error: 'No se pudo cargar el perfil de usuario.' }, { status: 500 });
+    }
+
+    const { tokens = 0, unlimited_tokens = false } = profile;
+    const cost = TOKEN_COSTS.GENERATE_SCENE;
+
+    if (!unlimited_tokens && tokens < cost) {
+      return NextResponse.json({ error: `Tokens insuficientes. Generar una escena cuesta ${cost} tokens, pero tienes ${tokens}.` }, { status: 403 });
     }
 
     // 2. Obtener detalles del chat y personaje
@@ -498,6 +517,18 @@ export async function POST(request: NextRequest) {
     } else {
       const base64Image = imageBuffer.toString('base64');
       finalImageUrl = `data:image/jpeg;base64,${base64Image}`;
+    }
+
+    // Descontar tokens si no es ilimitado
+    if (!unlimited_tokens) {
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({ tokens: Math.max(0, tokens - cost) })
+        .eq('id', user.id);
+      
+      if (updateError) {
+        console.error('Error deducting tokens for scene generation:', updateError);
+      }
     }
 
     // 9. Registrar el mensaje en la base de datos como una imagen markdown

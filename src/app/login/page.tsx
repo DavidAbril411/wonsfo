@@ -83,6 +83,23 @@ function LoginPageContent() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        }
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setErrorMsg(err.message || 'Error al iniciar sesión con Google.');
+    }
+  };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
@@ -353,6 +370,28 @@ function LoginPageContent() {
                 </button>
               </div>
             </form>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-900"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-zinc-950 px-2 text-zinc-500 font-bold tracking-wider">O</span>
+              </div>
+            </div>
+
+            <div>
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-850 bg-zinc-900/30 hover:bg-zinc-900/60 px-3 py-2.5 text-sm font-bold text-zinc-200 transition-all duration-200"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="#EA4335" d="M12.24 10.285V14.4h6.887c-.648 2.41-2.519 4.114-5.136 4.114-3.44 0-6.228-2.77-6.228-6.19s2.788-6.19 6.228-6.19c1.55 0 2.96.57 4.05 1.51l3.05-3.05C18.66 2.03 15.65 1 12.24 1 6.03 1 1 6.03 1 12.24s5.03 11.24 11.24 11.24c6.36 0 11.39-4.47 11.39-11.24 0-.76-.08-1.5-.23-1.955H12.24z"/>
+                </svg>
+                Continuar con Google
+              </button>
+            </div>
 
             <div className="mt-8 text-center text-sm text-zinc-500 space-y-4">
               <p>

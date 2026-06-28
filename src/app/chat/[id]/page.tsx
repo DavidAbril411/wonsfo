@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { Send, ArrowLeft, ShieldAlert, Sparkles, MapPin, Gauge, Pencil, RotateCcw, Trash2, X } from 'lucide-react';
+import { Send, ArrowLeft, ShieldAlert, Sparkles, MapPin, Gauge, Pencil, RotateCcw, Trash2, X, Coins } from 'lucide-react';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -28,6 +28,8 @@ export default function ChatPage() {
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [isZoomed, setIsZoomed] = useState(false);
   const [isGeneratingScene, setIsGeneratingScene] = useState(false);
+  const [isUnlocking, setIsUnlocking] = useState(false);
+  const [tokens, setTokens] = useState(0);
 
   // Estados de edición y control de chat
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -63,14 +65,15 @@ export default function ChatPage() {
       }
       setUser(session.user);
 
-      // Cargar perfil Premium
+      // Cargar perfil Premium y tokens
       const { data: profile } = await supabase
         .from('profiles')
-        .select('is_premium')
+        .select('is_premium, tokens, unlimited_tokens')
         .eq('id', session.user.id)
         .single();
-      const userPremium = !!profile?.is_premium;
+      const userPremium = !!profile?.is_premium || !!profile?.unlimited_tokens;
       setIsPremium(userPremium);
+      setTokens(profile?.tokens || 0);
 
       try {
         // 2. Obtener los detalles del chat y personaje
@@ -585,6 +588,44 @@ export default function ChatPage() {
     );
   }
 
+  const handleUnlockClimax = async () => {
+    setIsUnlocking(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const res = await fetch('/api/chat/unlock-climax', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ chatId })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Recargar los mensajes de la base de datos
+        await syncMessagesFromDB();
+        
+        // Actualizar el estado local de tokens
+        if (data.tokensLeft !== undefined) {
+          setTokens(data.tokensLeft);
+        }
+      } else {
+        alert(data.error || 'Error al desbloquear el clímax.');
+      }
+    } catch (err: any) {
+      console.error('Error unlocking climax:', err);
+      alert('Error inesperado al desbloquear el clímax.');
+    } finally {
+      setIsUnlocking(false);
+    }
+  };
+
   const isLockMessage = (text: string) => text.includes('🔒');
 
   return (
@@ -810,18 +851,27 @@ export default function ChatPage() {
             <div className="rounded-2xl border border-pink-900/40 bg-pink-950/15 p-5 text-center shadow-[0_0_15px_rgba(236,72,153,0.05)]">
               <p className="text-sm font-semibold text-pink-400 flex items-center justify-center gap-1.5">
                 <ShieldAlert className="h-4 w-4 text-pink-400" />
-                Se requiere Cuenta Premium
+                Clímax Narrativo Alcanzado 🪙
               </p>
               <p className="text-xs text-zinc-400 mt-2 leading-relaxed max-w-md mx-auto">
-                Has alcanzado el clímax narrativo. Puedes activar el simulador Premium en tu perfil para continuar chateando con {character.name}.
+                Has llegado al momento de mayor tensión en la historia con {character.name}. Desbloquea este clímax por <strong>5 Tokens</strong> para continuar chateando libremente.
               </p>
-              <button
-                onClick={() => router.push('/profile')}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-neon-brand text-zinc-50 px-4 py-2 text-xs font-bold shadow-[0_0_10px_rgba(236,72,153,0.2)] hover:opacity-90 transition-all cursor-pointer"
-              >
-                <Sparkles className="h-3 w-3 fill-zinc-50" />
-                Activar Premium en Perfil
-              </button>
+              <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={handleUnlockClimax}
+                  disabled={isUnlocking}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-neon-brand text-zinc-50 px-5 py-2.5 text-xs font-bold shadow-[0_0_10px_rgba(236,72,153,0.2)] hover:opacity-90 transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Coins className="h-3.5 w-3.5 fill-zinc-50" />
+                  {isUnlocking ? 'Desbloqueando...' : 'Desbloquear por 5 Tokens'}
+                </button>
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/30 text-zinc-300 px-5 py-2.5 text-xs font-bold hover:bg-zinc-900/60 transition-all cursor-pointer"
+                >
+                  Comprar Tokens
+                </button>
+              </div>
             </div>
           ) : (
             <form onSubmit={handleSendMessage} className="flex gap-2.5 items-center">

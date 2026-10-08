@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
+import { buildSceneTasks, generateWithRunware } from '@/lib/runware';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
@@ -315,9 +316,35 @@ export async function POST(request: NextRequest) {
 
     const siliconflowApiKey = process.env.SILICONFLOW_API_KEY;
     const atlasCloudApiKey = process.env.ATLAS_CLOUD_API_KEY;
-    const airforceApiKey = process.env.AIRFORCE_API_KEY;
     let success = false;
-    if (atlasCloudApiKey) {
+    let usedPrompt = enhancedPrompt;
+
+    // Runware (proveedor principal): modelo según estilo y desnudez, avatar como referencia de cara
+    const runwareTasks = buildSceneTasks({
+      look: {
+        name: character.name,
+        gender,
+        age,
+        ethnicity: englishEthnicity,
+        build: englishBuild,
+        physicalDetails: physicalDetailsEn,
+        eyes: englishEyes,
+        hair: `${englishHairLength} ${englishHair}`,
+        skin: englishSkin
+      },
+      artStyle,
+      sceneDescription: sceneDescriptionEn,
+      explicit: isNude,
+      avatarUrl: character.avatar_url
+    });
+    const runwareResult = await generateWithRunware(runwareTasks);
+    if (runwareResult) {
+      imageBuffer = runwareResult.buffer;
+      usedPrompt = runwareTasks.find((t) => t.model === runwareResult.model)?.positivePrompt || enhancedPrompt;
+      success = true;
+    }
+
+    if (!success && atlasCloudApiKey) {
       try {
         const atlasModel = artStyle === 'Anime'
           ? (process.env.ATLAS_CLOUD_ANIME_MODEL || 'black-forest-labs/flux-schnell')
@@ -356,72 +383,6 @@ export async function POST(request: NextRequest) {
         console.log("Generación exitosa con Atlas Cloud!");
       } catch (e: any) {
         console.error("Error en Atlas Cloud, realizando fallback...", e);
-      }
-    }
-
-    if (!success && airforceApiKey) {
-      const airforceModels = artStyle === 'Anime'
-        ? ['flux-2-klein-9b', 'flux-2-klein-4b']
-        : ['flux-2-klein-9b', 'flux-2-klein-4b'];
-
-      for (const model of airforceModels) {
-        if (success) break;
-        let attempts = 0;
-        while (attempts < 3 && !success) {
-          try {
-            console.log(`Llamando a Api.Airforce con modelo: ${model} (Intento ${attempts + 1})`);
-            const airforceResponse = await fetch('https://api.airforce/v1/images/generations', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${airforceApiKey}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                model: model,
-                prompt: enhancedPrompt,
-                n: 1,
-                size: '1024x1024'
-              })
-            });
-
-            if (airforceResponse.status === 429) {
-              console.warn("Api.Airforce 429 (Rate Limit). Esperando 2 segundos...");
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              attempts++;
-              continue;
-            }
-
-            if (!airforceResponse.ok) {
-              const errText = await airforceResponse.text();
-              throw new Error(`Api.Airforce error (${airforceResponse.status}): ${errText}`);
-            }
-
-            const resultJson = await airforceResponse.json();
-            const imageUrl = resultJson.data?.[0]?.url;
-            if (!imageUrl) {
-              console.warn(`Api.Airforce devolvió data vacía con modelo ${model}. Esperando 2 segundos...: ${JSON.stringify(resultJson)}`);
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              attempts++;
-              continue;
-            }
-
-            const fetchImage = await fetch(imageUrl);
-            if (!fetchImage.ok) {
-              throw new Error(`Failed to fetch image from Api.Airforce: ${fetchImage.statusText}`);
-            }
-
-            const imageArrayBuffer = await fetchImage.arrayBuffer();
-            imageBuffer = Buffer.from(imageArrayBuffer);
-            success = true;
-            console.log(`Generación exitosa con Api.Airforce usando modelo ${model}!`);
-          } catch (e: any) {
-            console.error(`Error en Api.Airforce con modelo ${model} (Intento ${attempts + 1}):`, e);
-            attempts++;
-            if (attempts < 3) {
-              await new Promise(resolve => setTimeout(resolve, 2000));
-            }
-          }
-        }
       }
     }
 
@@ -555,7 +516,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: insertedMsg,
-      prompt: enhancedPrompt
+      prompt: usedPrompt
     });
 
   } catch (error: any) {

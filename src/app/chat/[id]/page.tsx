@@ -298,7 +298,7 @@ export default function ChatPage() {
       const data = await response.json();
       
       if (data.prompt) {
-        console.log("Prompt enviado a Pollinations para la escena:", data.prompt);
+        console.log("Prompt de imagen para la escena:", data.prompt);
       }
       
       // Añadir la escena generada al feed de mensajes

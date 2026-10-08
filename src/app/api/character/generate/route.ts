@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
+import { buildAvatarTasks, generateWithRunware } from '@/lib/runware';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
@@ -293,7 +294,29 @@ export async function POST(request: NextRequest) {
     const airforceApiKey = process.env.AIRFORCE_API_KEY;
     let success = false;
 
-    if (atlasCloudApiKey) {
+    // Runware (proveedor principal): Klein 9B para realista, Hassaku XL para anime
+    const runwareResult = await generateWithRunware(buildAvatarTasks({
+      look: {
+        name,
+        gender,
+        age,
+        ethnicity: englishEthnicity,
+        build: englishBuild,
+        physicalDetails: physicalDetailsEn,
+        eyes: englishEyes,
+        hair: `${englishHairLength} ${englishHair}`,
+        skin: englishSkin
+      },
+      artStyle,
+      outfitAndSetting: clothingAndSettingEn || 'elegant casual outfit in a stylish apartment',
+      personality: englishPersonality
+    }));
+    if (runwareResult) {
+      imageBuffer = runwareResult.buffer;
+      success = true;
+    }
+
+    if (!success && atlasCloudApiKey) {
       try {
         const atlasModel = artStyle === 'Anime'
           ? (process.env.ATLAS_CLOUD_ANIME_MODEL || 'black-forest-labs/flux-schnell')

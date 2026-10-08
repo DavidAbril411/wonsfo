@@ -137,14 +137,16 @@ export default function GuestChatPage() {
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let assistantText = '';
+      let sseBuffer = ''; // línea SSE incompleta entre chunks
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+          sseBuffer += decoder.decode(value, { stream: true });
+          const lines = sseBuffer.split('\n');
+          sseBuffer = lines.pop() || '';
 
           for (const line of lines) {
             const cleaned = line.trim();

@@ -318,14 +318,20 @@ export async function POST(request: NextRequest) {
         }
 
         try {
+          // Una línea SSE puede llegar partida entre dos chunks (y un carácter UTF-8 como "ñ" también):
+          // se guarda el resto incompleto en el buffer hasta que llegue el siguiente chunk.
+          let sseBuffer = '';
           while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split('\n').filter(line => line.trim() !== '');
+            sseBuffer += decoder.decode(value, { stream: true });
+            const lines = sseBuffer.split('\n');
+            sseBuffer = lines.pop() || '';
 
-            for (const line of lines) {
+            for (const rawLine of lines) {
+              const line = rawLine.trim();
+              if (!line) continue;
               if (line.startsWith('data: ')) {
                 const dataStr = line.slice(6).trim();
                 

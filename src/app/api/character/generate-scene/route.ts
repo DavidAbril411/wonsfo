@@ -235,6 +235,7 @@ export async function POST(request: NextRequest) {
       `- Si tiene ropa parcial, descríbelo de manera exacta (ej: "wearing only black lace panties, bare breasts").\n` +
       `- Describe el fondo y entorno de manera exacta según el historial del rol (si están en una montaña, pon bosque o montaña; si están en una oficina, interior de oficina, etc.). Evita fondos planos o genéricos.\n` +
       `- Sé muy específico con la pose del personaje en el último turno.\n` +
+      `- ORDEN OBLIGATORIO: empieza SIEMPRE por el lugar/fondo (ej: "At a crowded night music festival under colorful stage lights, ..."), luego la pose y por último la ropa o desnudez.\n` +
       `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones ni explicaciones. Escribe la descripción directamente.`;
 
     const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {

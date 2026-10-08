@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
 import { buildSceneTasks, generateWithRunware } from '@/lib/runware';
+import { CHAT_MODELS, openRouterChat } from '@/lib/llm-models';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
@@ -137,7 +138,7 @@ export async function POST(request: NextRequest) {
     // Verificar saldo de tokens
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('tokens, unlimited_tokens')
+      .select('tokens, unlimited_tokens, gender')
       .eq('id', user.id)
       .single();
 
@@ -146,6 +147,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { tokens = 0, unlimited_tokens = false } = profile;
+    const userGender: string = (profile as any).gender || '';
     const cost = TOKEN_COSTS.GENERATE_SCENE;
 
     if (!unlimited_tokens && tokens < cost) {
@@ -171,7 +173,7 @@ export async function POST(request: NextRequest) {
       .select('sender, text')
       .eq('chat_id', chatId)
       .order('created_at', { ascending: false })
-      .limit(15);
+      .limit(50);
 
     if (msgError || !lastMessages || lastMessages.length === 0) {
       return NextResponse.json({ error: 'No hay mensajes en este chat para generar una escena.' }, { status: 400 });
@@ -184,10 +186,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No hay mensajes de texto en este chat para generar una escena.' }, { status: 400 });
     }
 
-    // Obtener el historial de los últimos 8 mensajes para contexto del escenario
-    const recentMessages = textMessages.slice(0, 8).reverse();
-    const chatHistoryContext = recentMessages.map(m => 
-      `${m.sender === 'user' ? 'Usuario' : character.name}: ${m.text}`
+    // Hasta 40 mensajes: los cambios de lugar (ej. "vamos a mi auto") suelen estar 15-30 mensajes atrás
+    const recentMessages = textMessages.slice(0, 40).reverse();
+    const chatHistoryContext = recentMessages.map(m =>
+      `${m.sender === 'user' ? 'Usuario' : character.name}: ${m.text.slice(0, 1200)}`
     ).join('\n');
 
     // 4. Intentar extraer metadatos del personaje
@@ -226,29 +228,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Falta la API Key de OpenRouter.' }, { status: 500 });
     }
 
-    const openRouterPrompt = 
-      `Dada la siguiente conversación de un juego de rol en español:\n` +
-      `[HISTORIAL DE CHAT]\n${chatHistoryContext}\n\n` +
-      `Genera una descripción física detallada en inglés (15 a 30 palabras) sobre la pose de ${character.name} en el último turno, su vestimenta exacta (o desnudez) y el entorno/fondo detallado según la conversación (ej. si están en la montaña, describe el bosque o la montaña de fondo; si están en la playa, la arena; no inventes interiores como una cama o habitación si están al aire libre).\n` +
-      `REGLAS ESTRICTAS DE CONTENIDO Y DESNUDEZ (CRÍTICO):\n` +
-      `- Si los mensajes indican que el personaje está sin ropa, desnudo o quitándosela, DEBES describirlo textualmente en inglés como: "completely naked", "fully nude", "bare skin", "bare breasts", "exposed pubic area". No añadas ropa si el rol dice que no la tiene.\n` +
-      `- Si tiene ropa parcial, descríbelo de manera exacta (ej: "wearing only black lace panties, bare breasts").\n` +
-      `- Describe el fondo y entorno de manera exacta según el historial del rol (si están en una montaña, pon bosque o montaña; si están en una oficina, interior de oficina, etc.). Evita fondos planos o genéricos.\n` +
-      `- Sé muy específico con la pose del personaje en el último turno.\n` +
-      `- ORDEN OBLIGATORIO: empieza SIEMPRE por el lugar/fondo (ej: "At a crowded night music festival under colorful stage lights, ..."), luego la pose y por último la ropa o desnudez.\n` +
-      `- FORMATO: Responde ÚNICAMENTE con el texto de la descripción en inglés. NO uses formato JSON, NO agregues introducciones ni explicaciones. Escribe la descripción directamente.`;
+    const userLabel = userGender === 'Mujer' ? 'una mujer' : userGender === 'Hombre' ? 'un hombre' : 'una persona';
+    const openRouterPrompt =
+      `Conversación de un juego de rol en español entre el Usuario (${userLabel}) y ${character.name}:\n` +
+      `[HISTORIAL DE CHAT]\n${chatHistoryContext}\n[FIN DEL HISTORIAL]\n\n` +
+      `Lugar donde empezó la historia: ${charMeta.startLocation || 'no especificado'}.\n\n` +
+      `Escribe en inglés (20 a 45 palabras) la descripción de una foto de ${character.name} en el momento del ÚLTIMO mensaje.\n` +
+      `REGLAS:\n` +
+      `1. LUGAR Y MOMENTO: el lugar donde están AHORA según la conversación (si se mudaron, el nuevo lugar; si nunca se dijo que se movieran, el lugar donde empezó) y si es de día o de noche. Usa solo pistas reales del historial; no inventes un lugar distinto.\n` +
+      `2. ROPA: el estado ACTUAL acumulado. Si en mensajes anteriores se quitó una prenda, sigue sin ella. Si está desnuda o sin parte de arriba, dilo literal en inglés ("topless, bare breasts", "completely naked"). No agregues ropa que ya se quitó.\n` +
+      `3. PUNTO DE VISTA: la foto es en primera persona desde los ojos del Usuario (POV). En la imagen solo aparece ${character.name}; del Usuario como mucho sus manos o brazos tocándola. Nunca describas a una segunda persona ni la cara del Usuario. Si se están besando o tocando, describe a ${character.name} como la ve el Usuario (ej: "leaning toward the viewer with parted lips", "looking into the camera"), no "kissing someone".\n` +
+      `4. ORDEN: empieza por el lugar, luego la pose y la expresión de ${character.name}, y al final la ropa o desnudez.\n` +
+      `5. Responde SOLO con la descripción en inglés, sin comillas, títulos ni explicaciones.`;
 
-    const openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterApiKey}`
-      },
-      body: JSON.stringify({
-        model: 'sao10k/l3-lunaris-8b',
-        messages: [{ role: 'user', content: openRouterPrompt }],
-        temperature: 0.7
-      })
+    // Venice (uncensored, 24B) entiende mucho mejor el contexto que Lunaris 8B; Lunaris queda de respaldo
+    const openRouterResponse = await openRouterChat({
+      models: [CHAT_MODELS.FREE, CHAT_MODELS.FREE_BACKUP, 'sao10k/l3-lunaris-8b'],
+      messages: [{ role: 'user', content: openRouterPrompt }],
+      title: 'Wonsfo Scene Describer',
+      temperature: 0.4,
+      maxTokens: 160
     });
 
     let sceneDescriptionEn = '';
@@ -267,8 +266,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (!sceneDescriptionEn || sceneDescriptionEn.toLowerCase().includes('clothed, posing in a room')) {
-      sceneDescriptionEn = 'completely naked, lying down on the stones at the top of a mountain, outdoor mountain nature background';
+    if (!sceneDescriptionEn) {
+      sceneDescriptionEn = `${character.name} looking at the viewer with a soft smile, warm ambient lighting, first-person point of view`;
     }
 
     // La descripción en inglés es lo que llega al modelo de imagen: bloquear cualquier referencia a menores
@@ -300,7 +299,8 @@ export async function POST(request: NextRequest) {
 
     // 7. Construir prompt de la escena
     let imagePrompt = '';
-    const isNude = /naked|nude|unclothed|bare breasts|exposed pubic|panties|underwear/i.test(sceneDescriptionEn);
+    // El LLM no siempre usa "topless": también detectar "her top is off", "removed her bra", etc.
+    const isNude = /naked|nude|unclothed|topless|shirtless|bare (breasts|chest)|breasts exposed|nipples|exposed pubic|panties|underwear|lingerie|\bbra\b|\btop (is )?(off|removed)|(removed|took off|takes off|without|no) (her |a )?(top|bra|shirt|clothes)/i.test(sceneDescriptionEn);
     const nsfwKeywords = isNude ? ', explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body' : '';
 
     if (artStyle === 'Anime') {
@@ -336,7 +336,8 @@ export async function POST(request: NextRequest) {
       artStyle,
       sceneDescription: sceneDescriptionEn,
       explicit: isNude,
-      avatarUrl: character.avatar_url
+      avatarUrl: character.avatar_url,
+      viewerGender: userGender
     });
     const runwareResult = await generateWithRunware(runwareTasks);
     if (runwareResult) {

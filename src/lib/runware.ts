@@ -76,6 +76,18 @@ function negativeFor(look: CharacterLook, extra: string, explicit: boolean): str
   return `${explicit ? '' : `${SFW_NEGATIVE}, `}${MINOR_NEGATIVE}${female}, ${extra}, ${QUALITY_NEGATIVE}`;
 }
 
+// La escena se ve desde los ojos del usuario: sin esto los modelos inventan una segunda persona (ej. otra mujer para un beso)
+// "hetero"/"male pov" no se usan: en modelos entrenados con tags de booru disparan actos sexuales que la escena no describe
+function povTags(viewerGender?: string): { tags: string; negative: string; text: string } {
+  if (viewerGender === 'Hombre') {
+    return { tags: 'pov', negative: '2girls, multiple girls, yuri, ', text: 'Photo taken from the first-person point of view of the man she is with; at most his hands are visible, never his face.' };
+  }
+  if (viewerGender === 'Mujer') {
+    return { tags: 'pov, female pov', negative: '', text: 'Photo taken from the first-person point of view of the woman she is with; at most her hands are visible, never her face.' };
+  }
+  return { tags: 'pov', negative: '', text: 'Photo taken from the first-person point of view of the person she is with; at most their hands are visible.' };
+}
+
 // Escena del chat: elige modelo según estilo y desnudez, y arma el prompt en el formato que espera cada modelo.
 export function buildSceneTasks(opts: {
   look: CharacterLook;
@@ -83,22 +95,27 @@ export function buildSceneTasks(opts: {
   sceneDescription: string;
   explicit: boolean;
   avatarUrl?: string | null;
+  viewerGender?: string;
 }): RunwareTask[] {
   const { look, artStyle, sceneDescription, explicit, avatarUrl } = opts;
+  const pov = povTags(opts.viewerGender);
+  // La imagen no debe ir más allá de lo que pasa en el rol: si la escena no describe sexo, se excluye explícitamente
+  const describesSex = /\bsex\b|intercourse|penetrat|penis|cock|fellatio|blowjob|oral|riding|straddl|cum\b|semen|thrust/i.test(sceneDescription);
+  if (!describesSex) pov.negative += 'penis, sex, fellatio, paizuri, ';
 
   if (artStyle === 'Anime') {
     return [{
       model: RUNWARE_MODELS.ANIME,
       // Lo más importante primero: CLIP de SDXL prioriza el inicio del prompt
-      positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${identityTags(look)}, ${explicit ? 'nsfw, nude, uncensored' : 'sfw, fully clothed'}, ${sceneDescription}, ${bodyTags(look)}`,
-      negativePrompt: negativeFor(look, 'young, photorealistic, 3d', explicit),
+      positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${pov.tags}, ${identityTags(look)}, ${explicit ? 'nsfw, nude, uncensored' : 'sfw, fully clothed'}, ${sceneDescription}, ${bodyTags(look)}`,
+      negativePrompt: pov.negative + negativeFor(look, 'young, photorealistic, 3d', explicit),
       width: 832, height: 1216, steps: 28, CFGScale: 5.5
     }];
   }
 
   if (explicit) {
-    const positivePrompt = `photorealistic, raw photo, ${subjectTags(look, false)}, ${identityTags(look)}, nude, ${sceneDescription}, ${bodyTags(look)}, detailed skin texture`;
-    const negativePrompt = negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', true);
+    const positivePrompt = `photorealistic, raw photo, ${subjectTags(look, false)}, ${pov.tags}, ${identityTags(look)}, nude, ${sceneDescription}, ${bodyTags(look)}, detailed skin texture`;
+    const negativePrompt = pov.negative + negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', true);
     return [
       {
         model: RUNWARE_MODELS.REAL_NSFW,
@@ -115,9 +132,16 @@ export function buildSceneTasks(opts: {
   const reference = avatarUrl ? 'The same person as in the reference image. ' : '';
   return [{
     model: RUNWARE_MODELS.REAL_SFW,
-    positivePrompt: `${reference}${sceneDescription}. ${lookTags(look)}. Realistic photograph, natural lighting, detailed skin, ${ADULT_PROMPT_GUARD}.`,
+    positivePrompt: `${reference}${sceneDescription}. Only one person in the photo: ${look.name}. ${pov.text} ${lookTags(look)}. Realistic photograph, natural lighting, detailed skin, ${ADULT_PROMPT_GUARD}.`,
     width: 896, height: 1152, steps: 4,
     ...(avatarUrl ? { referenceImages: [avatarUrl] } : {})
+  }, {
+    // Respaldo si Klein falla o tarda: Pony con la cara del avatar y desnudez prohibida
+    model: RUNWARE_MODELS.REAL_NSFW,
+    positivePrompt: `score_9, score_8_up, score_7_up, photorealistic, raw photo, ${subjectTags(look, false)}, ${pov.tags}, ${identityTags(look)}, sfw, fully clothed, ${sceneDescription}, ${bodyTags(look)}`,
+    negativePrompt: `score_6, score_5, score_4, ${pov.negative}${negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', false)}`,
+    width: 832, height: 1216, steps: 26, CFGScale: 5,
+    ...faceAdapter(avatarUrl, 0.8)
   }];
 }
 

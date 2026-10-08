@@ -281,8 +281,9 @@ export async function POST(request: NextRequest) {
 
     // 10. Seleccionar el Modelo de Inferencia
     // Free: Venice Uncensored (dolphin-mistral-24b)
-    // Premium: cydonia-24b (por defecto), skyfall-36b o euryale-70b
-    const selectedModel = isPremium ? resolvePremiumModel(chat?.model || model) : CHAT_MODELS.FREE;
+    // Premium: glm-5.3 (por defecto), cydonia-24b, skyfall-36b o euryale-70b
+    // El modelo elegido se guarda en el chat desde el selector; sin elección, GLM 5.3 por defecto
+    const selectedModel = isPremium ? resolvePremiumModel(chat?.model) : CHAT_MODELS.FREE;
 
     const openrouterApiKey = process.env.OPENROUTER_API_KEY;
 

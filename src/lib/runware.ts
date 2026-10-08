@@ -109,7 +109,7 @@ export function buildSceneTasks(opts: {
       // Lo más importante primero: CLIP de SDXL prioriza el inicio del prompt
       positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${pov.tags}, ${identityTags(look)}, ${explicit ? 'nsfw, nude, uncensored' : 'sfw, fully clothed'}, ${sceneDescription}, ${bodyTags(look)}`,
       negativePrompt: pov.negative + negativeFor(look, 'young, photorealistic, 3d', explicit),
-      width: 832, height: 1216, steps: 28, CFGScale: 5.5
+      width: 832, height: 1216, steps: 30, CFGScale: 5.5
     }];
   }
 
@@ -121,10 +121,10 @@ export function buildSceneTasks(opts: {
         model: RUNWARE_MODELS.REAL_NSFW,
         positivePrompt: `score_9, score_8_up, score_7_up, ${positivePrompt}`,
         negativePrompt: `score_6, score_5, score_4, ${negativePrompt}`,
-        width: 832, height: 1216, steps: 26, CFGScale: 5,
+        width: 832, height: 1216, steps: 30, CFGScale: 5,
         ...faceAdapter(avatarUrl, 0.8)
       },
-      { model: RUNWARE_MODELS.REAL_NSFW_FALLBACK, positivePrompt, negativePrompt, width: 832, height: 1216, steps: 26, CFGScale: 5 }
+      { model: RUNWARE_MODELS.REAL_NSFW_FALLBACK, positivePrompt, negativePrompt, width: 832, height: 1216, steps: 30, CFGScale: 5 }
     ];
   }
 
@@ -140,7 +140,7 @@ export function buildSceneTasks(opts: {
     model: RUNWARE_MODELS.REAL_NSFW,
     positivePrompt: `score_9, score_8_up, score_7_up, photorealistic, raw photo, ${subjectTags(look, false)}, ${pov.tags}, ${identityTags(look)}, sfw, fully clothed, ${sceneDescription}, ${bodyTags(look)}`,
     negativePrompt: `score_6, score_5, score_4, ${pov.negative}${negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', false)}`,
-    width: 832, height: 1216, steps: 26, CFGScale: 5,
+    width: 832, height: 1216, steps: 30, CFGScale: 5,
     ...faceAdapter(avatarUrl, 0.8)
   }];
 }
@@ -153,7 +153,7 @@ export function buildAvatarTasks(opts: { look: CharacterLook; artStyle: string; 
       model: RUNWARE_MODELS.ANIME,
       positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${identityTags(look)}, sfw, fully clothed, ${outfitAndSetting}, standing, cowboy shot, looking at viewer, ${personality}, ${bodyTags(look)}`,
       negativePrompt: negativeFor(look, 'young, photorealistic, 3d', false),
-      width: 832, height: 1216, steps: 28, CFGScale: 5.5
+      width: 832, height: 1216, steps: 30, CFGScale: 5.5
     }];
   }
   return [{
@@ -178,6 +178,7 @@ export async function generateWithRunware(tasks: RunwareTask[]): Promise<{ buffe
       numberResults: 1,
       outputType: 'base64Data',
       outputFormat: 'JPG',
+      outputQuality: 95,
       includeCost: true
     }];
 
@@ -201,4 +202,40 @@ export async function generateWithRunware(tasks: RunwareTask[]): Promise<{ buffe
     }
   }
   return null;
+}
+
+// Amplía ×2 con Real-ESRGAN (~$0.0006, ~7s): más nitidez sin cambiar la cara (Clarity cambiaba rasgos y tardaba 33s).
+// Devuelve null si falla; el llamador conserva la imagen original.
+export async function upscaleWithRunware(image: Buffer): Promise<Buffer | null> {
+  const apiKey = process.env.RUNWARE_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const started = Date.now();
+    const response = await fetch('https://api.runware.ai/v1', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{
+        taskType: 'upscale',
+        taskUUID: crypto.randomUUID(),
+        model: 'runware:504@1',
+        upscaleFactor: 2,
+        inputs: { image: `data:image/jpeg;base64,${image.toString('base64')}` },
+        outputType: 'base64Data',
+        outputFormat: 'JPG',
+        outputQuality: 95,
+        includeCost: true
+      }]),
+      signal: AbortSignal.timeout(20_000)
+    });
+    const json = await response.json();
+    const result = json?.data?.[0];
+    if (!response.ok || json?.errors?.length || !result?.imageBase64Data) {
+      throw new Error(`Runware upscale ${response.status}: ${JSON.stringify(json?.errors || json).slice(0, 300)}`);
+    }
+    console.log(`Runware upscale OK en ${Date.now() - started}ms (costo $${result.cost})`);
+    return Buffer.from(result.imageBase64Data, 'base64');
+  } catch (e: any) {
+    console.error('Runware upscale falló, se usa la imagen original:', e?.message || e);
+    return null;
+  }
 }

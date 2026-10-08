@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
-import { buildAvatarTasks, generateWithRunware } from '@/lib/runware';
+import { buildAvatarTasks, generateWithRunware, upscaleWithRunware } from '@/lib/runware';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
@@ -312,7 +312,7 @@ export async function POST(request: NextRequest) {
       personality: englishPersonality
     }));
     if (runwareResult) {
-      imageBuffer = runwareResult.buffer;
+      imageBuffer = (await upscaleWithRunware(runwareResult.buffer)) || runwareResult.buffer;
       success = true;
     }
 
@@ -507,8 +507,8 @@ export async function POST(request: NextRequest) {
         cloudinary.uploader.upload_stream(
           {
             folder: 'wonsfo_avatars',
-            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-            transformation: [{ width: 1024, height: 1024, crop: 'limit', quality: 'auto' }]
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+            // Sin transformación: antes se achicaba a 1024px y se recomprimía (perdía ~30% de resolución)
           },
           (error, result) => {
             if (error) reject(error);

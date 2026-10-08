@@ -33,7 +33,7 @@ export default function ChatPage() {
   // Estados de streaming e inferencia
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedText, setStreamedText] = useState('');
-  const [premiumModels, setPremiumModels] = useState('thedrummer/cydonia-24b-v4.1');
+  const [premiumModels, setPremiumModels] = useState('z-ai/glm-5.3');
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageUrl, setModalImageUrl] = useState('');
   const [isZoomed, setIsZoomed] = useState(false);
@@ -45,14 +45,7 @@ export default function ChatPage() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editInputText, setEditInputText] = useState('');
 
-  useEffect(() => {
-    if (chatId) {
-      const storedModel = localStorage.getItem(`chat_model_${chatId}`);
-      if (storedModel) {
-        setPremiumModels(storedModel);
-      }
-    }
-  }, [chatId]);
+  // El modelo sale del chat guardado en la base (ver carga del chat); sin elección, GLM 5.3
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -119,6 +112,8 @@ export default function ChatPage() {
             setPremiumModels(chat.model);
             localStorage.setItem(`chat_model_${chatId}`, chat.model);
           }
+        } else {
+          setPremiumModels('z-ai/glm-5.3');
         }
 
         // 3. Cargar el histórico de mensajes
@@ -695,6 +690,7 @@ export default function ChatPage() {
                 }}
                 className="rounded-md border border-zinc-800 bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300 focus:outline-hidden"
               >
+                <option value="z-ai/glm-5.3">GLM 5.3 (Recomendado)</option>
                 <option value="thedrummer/cydonia-24b-v4.1">Cydonia 24B (RP Diario)</option>
                 <option value="thedrummer/skyfall-36b-v2">Skyfall 36B (Creativo)</option>
                 <option value="sao10k/l3.3-euryale-70b">Euryale 70B (Descriptivo)</option>

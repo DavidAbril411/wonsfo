@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
-import { buildSceneTasks, generateWithRunware } from '@/lib/runware';
+import { buildSceneTasks, generateWithRunware, upscaleWithRunware } from '@/lib/runware';
 import { CHAT_MODELS, openRouterChat } from '@/lib/llm-models';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
@@ -339,9 +339,14 @@ export async function POST(request: NextRequest) {
       avatarUrl: character.avatar_url,
       viewerGender: userGender
     });
+    const generationStarted = Date.now();
     const runwareResult = await generateWithRunware(runwareTasks);
     if (runwareResult) {
       imageBuffer = runwareResult.buffer;
+      // Upscale ×2 solo si queda margen antes del corte de 60s de nginx
+      if (Date.now() - generationStarted < 30_000) {
+        imageBuffer = (await upscaleWithRunware(imageBuffer)) || imageBuffer;
+      }
       usedPrompt = runwareTasks.find((t) => t.model === runwareResult.model)?.positivePrompt || enhancedPrompt;
       success = true;
     }
@@ -473,8 +478,8 @@ export async function POST(request: NextRequest) {
         cloudinary.uploader.upload_stream(
           {
             folder: 'wonsfo_scenes',
-            allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-            transformation: [{ width: 1024, height: 1024, crop: 'limit', quality: 'auto' }]
+            allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+            // Sin transformación: antes se achicaba a 1024px y se recomprimía (perdía ~30% de resolución)
           },
           (error, result) => {
             if (error) reject(error);

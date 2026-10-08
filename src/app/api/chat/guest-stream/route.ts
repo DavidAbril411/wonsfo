@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { evaluateMessageIntimacy } from '@/lib/climax-engine';
+import { CHAT_MODELS, buildModelChain, openRouterChat } from '@/lib/llm-models';
+import { getClientIp, isRateLimited } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Endpoint sin autenticación: limitar por IP para que no se use como LLM gratis.
+    // Sin IP (proxy que no envía X-Forwarded-For) no se limita: un bucket compartido bloquearía a todos.
+    const clientIp = getClientIp(request.headers);
+    if (clientIp === 'unknown') {
+      console.warn('guest-stream: sin IP de cliente, rate limit desactivado. Configurar X-Forwarded-For en nginx.');
+    } else if (isRateLimited(`guest:${clientIp}`, 20, 60 * 60 * 1000)) {
+      return NextResponse.json({
+        error: 'Demasiados mensajes como invitado. Regístrate gratis para seguir chateando.'
+      }, { status: 429 });
+    }
+
     const { characterId, messages } = await request.json();
 
     if (!characterId || !messages || !Array.isArray(messages)) {
@@ -29,11 +42,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Personaje no encontrado.' }, { status: 404 });
     }
 
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (!openrouterApiKey) {
-      return NextResponse.json({ error: 'Falta la API Key de OpenRouter.' }, { status: 500 });
-    }
-
     // 3. Preparar el historial de chat para OpenRouter
     const chatHistory = messages.map(m => ({
       role: m.sender === 'user' ? 'user' : 'assistant',
@@ -52,26 +60,14 @@ export async function POST(request: NextRequest) {
       ...chatHistory
     ];
 
-    // Usar el modelo por defecto de Airforce para chats no NSFW de invitados
-    // (o el modelo estándar rápido)
-    const modelToUse = process.env.AIRFORCE_REAL_MODEL || 'flux-2-klein-9b';
-
-    // 4. Llamar a OpenRouter para streaming
-    const openrouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openrouterApiKey}`,
-        'HTTP-Referer': 'https://wonsfo.com',
-        'X-Title': 'Wonsfo Guest Chat'
-      },
-      body: JSON.stringify({
-        model: 'cognitivecomputations/dolphin-mixtral-8x7b', // Modelo rápido e inteligente para rol libre
-        messages: formattedMessages,
-        stream: true,
-        temperature: 0.88,
-        max_tokens: 450
-      })
+    // 4. Llamar a OpenRouter para streaming (con fallback nativo entre modelos)
+    const openrouterResponse = await openRouterChat({
+      models: buildModelChain(CHAT_MODELS.FREE, false),
+      messages: formattedMessages,
+      title: 'Wonsfo Guest Chat',
+      stream: true,
+      temperature: 0.88,
+      maxTokens: 450
     });
 
     if (!openrouterResponse.ok) {

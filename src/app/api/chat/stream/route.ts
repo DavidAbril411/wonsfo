@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { evaluateMessageIntimacy, getClimaxMultiplier, shouldTriggerPaywall } from '@/lib/climax-engine';
 import { processSpeechDialect, applyLocalLexicon, sanitizeRoleplayFormatting } from '@/lib/dialect-engine';
+import { CHAT_MODELS, buildModelChain, openRouterChat, resolvePremiumModel } from '@/lib/llm-models';
+import { CHAT_METERING } from '@/lib/token-costs';
 
 export const dynamic = 'force-dynamic';
 
@@ -125,6 +127,26 @@ export async function POST(request: NextRequest) {
           'Cache-Control': 'no-cache',
           'Connection': 'keep-alive'
         }
+      });
+    }
+
+    // 6.5 Medición del chat: 1 token cada N mensajes premium, límite diario en el modelo gratis.
+    // Si la función SQL todavía no existe se deja pasar el mensaje (fail-open) para no romper el chat.
+    const { data: meter, error: meterError } = await supabaseAdmin.rpc('consume_chat_message', {
+      p_user_id: user.id,
+      p_free_daily_limit: CHAT_METERING.FREE_DAILY_MESSAGES,
+      p_msgs_per_token: CHAT_METERING.PREMIUM_MESSAGES_PER_TOKEN
+    });
+
+    if (meterError) {
+      console.error('consume_chat_message falló (¿migración pendiente?):', meterError.message);
+    } else if (meter && meter.allowed === false) {
+      const limitMessage = meter.reason === 'free_daily_limit'
+        ? `Llegaste al límite de ${CHAT_METERING.FREE_DAILY_MESSAGES} mensajes gratis de hoy. Recarga tokens en tu perfil para seguir chateando con los modelos premium, o vuelve mañana.`
+        : 'No se pudo validar tu cuenta para chatear.';
+      return new Response(JSON.stringify({ error: limitMessage, reason: meter.reason }), {
+        status: 402,
+        headers: { 'Content-Type': 'application/json' }
       });
     }
 
@@ -258,113 +280,24 @@ export async function POST(request: NextRequest) {
     }
 
     // 10. Seleccionar el Modelo de Inferencia
-    // Free: dolphin-mistral-24b
-    // Premium: skyfall-36b, euryale-70b o cydonia-24b (por defecto cydonia-24b si no se especifica)
-    let selectedModel = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
-    if (isPremium) {
-      const rawModel = chat?.model || model || 'thedrummer/cydonia-24b-v4.1';
-      // Mapear gpt-oss-120b (censurado) a skyfall-36b-v2
-      selectedModel = rawModel === 'openai/gpt-oss-120b' ? 'thedrummer/skyfall-36b-v2' : rawModel;
-    }
+    // Free: Venice Uncensored (dolphin-mistral-24b)
+    // Premium: cydonia-24b (por defecto), skyfall-36b o euryale-70b
+    const selectedModel = isPremium ? resolvePremiumModel(chat?.model || model) : CHAT_MODELS.FREE;
 
-    // 11. Llamar a OpenRouter con Streaming habilitado
     const openrouterApiKey = process.env.OPENROUTER_API_KEY;
-    if (!openrouterApiKey) {
-      return new Response(JSON.stringify({ error: 'La API key de OpenRouter no está configurada en el servidor.' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      });
-    }
 
-    let openRouterResponse: Response;
-
-    // 11. Llamar a OpenRouter con Streaming habilitado (con cascada de fallback resiliente a errores HTTP y de red)
-    try {
-      openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openrouterApiKey}`,
-          'HTTP-Referer': 'https://wonsfo.com',
-          'X-Title': 'Wonsfo NSFW Chat Client'
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: apiMessages,
-          stream: true,
-          temperature: 0.85
-        })
-      });
-    } catch (e: any) {
-      console.warn(`OpenRouter primary model (${selectedModel}) fetch exception:`, e.message);
-      openRouterResponse = new Response(e.message || 'Primary fetch error', { status: 500 });
-    }
+    // 11. Llamar a OpenRouter con Streaming. El fallback entre modelos lo resuelve OpenRouter
+    // en una sola petición mediante el array `models`.
+    const openRouterResponse = await openRouterChat({
+      models: buildModelChain(selectedModel, isPremium),
+      messages: apiMessages,
+      title: 'Wonsfo NSFW Chat Client',
+      stream: true,
+      temperature: 0.85
+    });
 
     if (!openRouterResponse.ok) {
-      const errorText = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
-      console.warn(`OpenRouter primary model (${selectedModel}) failed:`, errorText);
-
-      // Determinar primer fallback
-      let fallbackModel = 'thedrummer/cydonia-24b-v4.1';
-      if (selectedModel === 'thedrummer/cydonia-24b-v4.1') {
-        fallbackModel = 'thedrummer/skyfall-36b-v2';
-      }
-
-      console.log(`Intentando fallback a: ${fallbackModel}`);
-      try {
-        openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openrouterApiKey}`,
-            'HTTP-Referer': 'https://wonsfo.com',
-            'X-Title': 'Wonsfo NSFW Chat Client'
-          },
-          body: JSON.stringify({
-            model: fallbackModel,
-            messages: apiMessages,
-            stream: true,
-            temperature: 0.85
-          })
-        });
-      } catch (e: any) {
-        console.warn(`OpenRouter secondary fallback (${fallbackModel}) fetch exception:`, e.message);
-        openRouterResponse = new Response(e.message || 'Secondary fetch error', { status: 500 });
-      }
-
-      if (!openRouterResponse.ok) {
-        const errorText2 = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
-        console.warn(`OpenRouter secondary fallback (${fallbackModel}) failed:`, errorText2);
-
-        // Segundo fallback extremo: free tier
-        const ultimateFallback = 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free';
-        console.log(`Intentando fallback extremo a: ${ultimateFallback}`);
-
-        try {
-          openRouterResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${openrouterApiKey}`,
-              'HTTP-Referer': 'https://wonsfo.com',
-              'X-Title': 'Wonsfo NSFW Chat Client'
-            },
-            body: JSON.stringify({
-              model: ultimateFallback,
-              messages: apiMessages,
-              stream: true,
-              temperature: 0.85
-            })
-          });
-        } catch (e: any) {
-          console.warn(`OpenRouter ultimate fallback (${ultimateFallback}) fetch exception:`, e.message);
-          openRouterResponse = new Response(e.message || 'Ultimate fetch error', { status: 500 });
-        }
-      }
-    }
-
-    if (!openRouterResponse.ok) {
-      const finalErrorText = openRouterResponse.status === 500 ? 'Network/Fetch error' : await openRouterResponse.text();
+      const finalErrorText = await openRouterResponse.text();
       console.error('All OpenRouter fallbacks failed:', finalErrorText);
       return new Response(JSON.stringify({ error: `Error de OpenRouter (todos los modelos fallaron): ${finalErrorText}` }), {
         status: 502,

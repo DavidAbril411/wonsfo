@@ -124,6 +124,7 @@ export default function CreateAgentPage() {
   const [waistButt, setWaistButt] = useState('Estándar');
   const [muscleAmount, setMuscleAmount] = useState('Normal / Sin entrenar');
   const [beardStyle, setBeardStyle] = useState('Afeitado / Sin barba');
+  const [isPublic, setIsPublic] = useState(false);
   
   // Saludo manual o automático
   const [greetingChoice, setGreetingChoice] = useState<'generate' | 'manual'>('generate');
@@ -165,7 +166,7 @@ export default function CreateAgentPage() {
   }, [gender]);
 
   const handleGenerateCharacter = async () => {
-    if (!user || !isPremium) return;
+    if (!user) return;
     if (!name.trim()) {
       alert("Por favor escribe el nombre de tu personaje.");
       setStep(1);
@@ -187,7 +188,7 @@ export default function CreateAgentPage() {
         return;
       }
 
-      setGenerationStep('Pintando retrato con IA (Pollinations)...');
+      setGenerationStep('Pintando retrato con IA (Airforce/SiliconFlow)...');
       const response = await fetch('/api/character/generate', {
         method: 'POST',
         headers: {
@@ -216,7 +217,8 @@ export default function CreateAgentPage() {
           breastSize,
           waistButt,
           muscleAmount,
-          beardStyle
+          beardStyle,
+          isPublic
         })
       });
 
@@ -986,6 +988,27 @@ export default function CreateAgentPage() {
                 <p className="font-bold text-zinc-400">Instrucciones de Generación de Imagen:</p>
                 <p className="mt-0.5">La API llamará a Pollinations con `safe=false` y el modelo `{artStyle === 'Anime' ? 'flux' : 'flux-realism'}` para pintar tu avatar personalizado sin censuras.</p>
               </div>
+            </div>
+
+            {/* Toggle de visibilidad pública */}
+            <div className="flex items-center justify-between rounded-2xl border border-zinc-900 bg-zinc-900/10 p-4">
+              <div>
+                <span className="text-xs font-bold text-zinc-200 block">¿Hacer personaje público?</span>
+                <span className="text-[10px] text-zinc-550 block mt-0.5">Si se activa, el personaje aparecerá en la galería de inicio y otros usuarios podrán chatear con él.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPublic(!isPublic)}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-200 focus:outline-hidden ${
+                  isPublic ? 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]' : 'bg-zinc-800'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-zinc-950 shadow-md ring-0 transition duration-200 ${
+                    isPublic ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         )}

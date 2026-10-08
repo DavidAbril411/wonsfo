@@ -5,6 +5,16 @@ import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Send, ArrowLeft, ShieldAlert, Sparkles, MapPin, Gauge, Pencil, RotateCcw, Trash2, X, Coins } from 'lucide-react';
 
+// Error con un mensaje pensado para el usuario (ej. límite diario de mensajes gratis).
+class ChatLimitError extends Error {}
+
+async function ensureStreamOk(response: Response) {
+  if (response.ok) return;
+  const body = await response.json().catch(() => null);
+  if (response.status === 402 && body?.error) throw new ChatLimitError(body.error);
+  throw new Error('Error al conectar con la API de streaming de chat.');
+}
+
 export default function ChatPage() {
   const router = useRouter();
   const { id: chatId } = useParams() as { id: string };
@@ -211,9 +221,7 @@ export default function ChatPage() {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Error al conectar con la API de streaming de chat.');
-      }
+      await ensureStreamOk(response);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -253,7 +261,7 @@ export default function ChatPage() {
 
     } catch (err) {
       console.error('Error during streaming chat:', err);
-      alert('Error de conexión al chatear.');
+      alert(err instanceof ChatLimitError ? err.message : 'Error de conexión al chatear.');
       await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);
@@ -357,9 +365,7 @@ export default function ChatPage() {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Error al conectar con la API de streaming de chat.');
-      }
+      await ensureStreamOk(response);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -399,7 +405,7 @@ export default function ChatPage() {
 
     } catch (err) {
       console.error('Error during editing message:', err);
-      alert('Error de conexión al guardar el mensaje editado.');
+      alert(err instanceof ChatLimitError ? err.message : 'Error de conexión al guardar el mensaje editado.');
       await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);
@@ -471,9 +477,7 @@ export default function ChatPage() {
         })
       });
 
-      if (!response.ok) {
-        throw new Error('Error al conectar con la API de streaming de chat.');
-      }
+      await ensureStreamOk(response);
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -513,7 +517,7 @@ export default function ChatPage() {
 
     } catch (err) {
       console.error('Error during regeneration:', err);
-      alert('Error de conexión al regenerar.');
+      alert(err instanceof ChatLimitError ? err.message : 'Error de conexión al regenerar.');
       await syncMessagesFromDB();
     } finally {
       setIsStreaming(false);

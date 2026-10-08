@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
+import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
 const isCloudinaryConfigured = 
@@ -268,6 +269,12 @@ export async function POST(request: NextRequest) {
       sceneDescriptionEn = 'completely naked, lying down on the stones at the top of a mountain, outdoor mountain nature background';
     }
 
+    // La descripción en inglés es lo que llega al modelo de imagen: bloquear cualquier referencia a menores
+    if (containsMinorReference(sceneDescriptionEn)) {
+      console.warn('Escena bloqueada por referencia a menores:', sceneDescriptionEn);
+      return NextResponse.json({ error: MINOR_BLOCK_MESSAGE }, { status: 400 });
+    }
+
     // 6. Traducir atributos físicos individuales
     const englishBuild = TRANSLATE_BUILD[build] || 'fit build';
     const englishEyes = TRANSLATE_EYES[eyes] || 'beautiful eyes';
@@ -295,9 +302,9 @@ export async function POST(request: NextRequest) {
     const nsfwKeywords = isNude ? ', explicit nsfw, uncensored, detailed skin, highly detailed nipples, anatomically correct body' : '';
 
     if (artStyle === 'Anime') {
-      imagePrompt = `${sceneDescriptionEn}, sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, vibrant colors, clean lines, high quality anime artwork, masterpiece${nsfwKeywords}`;
+      imagePrompt = `${sceneDescriptionEn}, sensual anime style illustration, 2d digital art, beautiful ${adultAgeDescriptor(age)} ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, vibrant colors, clean lines, high quality anime artwork, masterpiece, ${ADULT_PROMPT_GUARD}${nsfwKeywords}`;
     } else {
-      imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background${nsfwKeywords}`;
+      imagePrompt = `${sceneDescriptionEn}, sensual raw photography, knee-up shot of a beautiful ${adultAgeDescriptor(age)} ${englishEthnicity} ${englishGender}, named ${character.name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, realistic natural lighting, detailed environment background, ${ADULT_PROMPT_GUARD}${nsfwKeywords}`;
     }
 
     let imageBuffer: Buffer = Buffer.alloc(0);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
+import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
 // Configurar Cloudinary
 const isCloudinaryConfigured = 
@@ -135,11 +136,16 @@ export async function POST(request: NextRequest) {
       breastSize,
       waistButt,
       muscleAmount,
-      beardStyle
+      beardStyle,
+      isPublic
     } = await request.json();
 
     if (!name || !age || !build || !eyes || !hair || !skin || !personality || !dialect || !gender || !artStyle || !ethnicity || !relationship) {
       return NextResponse.json({ error: 'Faltan atributos obligatorios para la creación del personaje.' }, { status: 400 });
+    }
+
+    if (containsMinorReference(contextDetails)) {
+      return NextResponse.json({ error: MINOR_BLOCK_MESSAGE }, { status: 400 });
     }
 
     // 1. Validar autenticación
@@ -245,6 +251,11 @@ export async function POST(request: NextRequest) {
       clothingAndSettingEn = 'casual clothing in a dark room';
     }
 
+    // El LLM traduce el contexto libre del usuario: nunca dejar pasar referencias a menores al prompt de imagen
+    if (containsMinorReference(clothingAndSettingEn)) {
+      clothingAndSettingEn = 'elegant casual outfit in a stylish apartment';
+    }
+
     // 4. Generar la imagen con IA mediante Pollinations
     const englishBuild = TRANSLATE_BUILD[build] || 'fit build';
     const englishEyes = TRANSLATE_EYES[eyes] || 'beautiful eyes';
@@ -270,10 +281,10 @@ export async function POST(request: NextRequest) {
     let imagePrompt = '';
     if (artStyle === 'Anime') {
       // Prompt optimizado para estilo anime
-      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, key visual, black background`;
+      imagePrompt = `sensual anime style illustration, 2d digital art, beautiful ${adultAgeDescriptor(age)} ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, vibrant colors, clean lines, high quality anime artwork, masterpiece, key visual, black background, ${ADULT_PROMPT_GUARD}`;
     } else {
       // Prompt optimizado para fotografía real fotorrealista (rodillas hacia arriba)
-      imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${age} years old ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop`;
+      imagePrompt = `sensual raw photography, knee-up full body shot of a beautiful ${adultAgeDescriptor(age)} ${englishEthnicity} ${englishGender} standing, named ${name}, ${englishBuild}, ${physicalDetailsEn}, ${englishEyes}, ${englishHairLength} ${englishHair}, ${englishSkin}, ${englishPersonality}, ${clothingAndSettingEn}, highly detailed, photorealistic, 8k resolution, raw format, masterpiece, studio lighting, black backdrop, ${ADULT_PROMPT_GUARD}`;
     }
 
     let imageBuffer: Buffer = Buffer.alloc(0);
@@ -532,7 +543,8 @@ export async function POST(request: NextRequest) {
         avatar_url: finalAvatarUrl,
         default_language: 'es',
         default_country: dialect,
-        climax_speed: climaxSpeed
+        climax_speed: climaxSpeed,
+        is_public: !!isPublic
       })
       .select()
       .single();

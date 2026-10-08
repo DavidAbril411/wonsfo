@@ -1,3 +1,4 @@
+import { CHAT_MODELS } from './llm-models';
 // Lógica híbrida para conversión de dialectos locales (Premium)
 
 // Dicionarios de reemplazo directo para localismos básicos (Regex)
@@ -104,7 +105,7 @@ export async function rewriteWithLocalDialectLLM(
         'X-Title': 'Wonsfo NSFW Dialect Rewriter'
       },
       body: JSON.stringify({
-        model: 'cognitivecomputations/dolphin-mistral-24b-venice-edition:free',
+        model: CHAT_MODELS.FREE,
         messages: [
           {
             role: 'system',

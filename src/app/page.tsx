@@ -104,11 +104,15 @@ export default function Dashboard() {
       }
 
       try {
-        // Cargar personajes de la base de datos de manera pública
-        let { data: dbCharacters, error } = await supabase
-          .from('characters')
-          .select('*')
-          .order('created_at', { ascending: false });
+        let query = supabase.from('characters').select('*');
+        
+        if (session) {
+          query = query.or(`user_id.eq.${session.user.id},is_public.eq.true`);
+        } else {
+          query = query.eq('is_public', true);
+        }
+
+        let { data: dbCharacters, error } = await query.order('created_at', { ascending: false });
 
         if (error) throw error;
 

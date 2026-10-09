@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { v2 as cloudinary } from 'cloudinary';
 import { TOKEN_COSTS } from '@/lib/token-costs';
-import { buildSceneTasks, generateWithRunware, upscaleWithRunware } from '@/lib/runware';
+import { buildSceneTasks, generateWithRunware, refineFaceWithKlein, upscaleWithRunware } from '@/lib/runware';
 import { CHAT_MODELS, openRouterChat } from '@/lib/llm-models';
 import { ADULT_PROMPT_GUARD, MINOR_BLOCK_MESSAGE, adultAgeDescriptor, containsMinorReference } from '@/lib/image-safety';
 
@@ -235,15 +235,18 @@ export async function POST(request: NextRequest) {
       `Lugar donde empezó la historia: ${charMeta.startLocation || 'no especificado'}.\n\n` +
       `Escribe en inglés (20 a 45 palabras) la descripción de una foto de ${character.name} en el momento del ÚLTIMO mensaje.\n` +
       `REGLAS:\n` +
-      `1. LUGAR Y MOMENTO: el lugar donde están AHORA según la conversación (si se mudaron, el nuevo lugar; si nunca se dijo que se movieran, el lugar donde empezó) y si es de día o de noche. Usa solo pistas reales del historial; no inventes un lugar distinto.\n` +
+      `1. LUGAR Y MOMENTO: el lugar donde están AHORA según la conversación (si se mudaron, el nuevo lugar; si nunca se dijo que se movieran, el lugar donde empezó) y si es de día o de noche. Usa solo pistas reales del historial; no inventes un lugar distinto. Descríbelo de forma concreta e inconfundible (ej: "a private home theater room inside a luxurious house, dark, recliner sofas" y no "cinema"). Todo en inglés.\n` +
       `2. ROPA: el estado ACTUAL acumulado. Si en mensajes anteriores se quitó una prenda, sigue sin ella. Si está desnuda o sin parte de arriba, dilo literal en inglés ("topless, bare breasts", "completely naked"). No agregues ropa que ya se quitó.\n` +
       `3. PUNTO DE VISTA: la foto es en primera persona desde los ojos del Usuario (POV). En la imagen solo aparece ${character.name}; del Usuario como mucho sus manos o brazos tocándola. Nunca describas a una segunda persona ni la cara del Usuario. Si se están besando o tocando, describe a ${character.name} como la ve el Usuario (ej: "leaning toward the viewer with parted lips", "looking into the camera"), no "kissing someone".\n` +
-      `4. ORDEN: empieza por el lugar, luego la pose y la expresión de ${character.name}, y al final la ropa o desnudez.\n` +
-      `5. Responde SOLO con la descripción en inglés, sin comillas, títulos ni explicaciones.`;
+      `4. FORMATO: responde SOLO con estas tres líneas en inglés, sin nada más:\n` +
+      `CLOTHING: <ropa actual o desnudez, máximo 12 palabras (ej: "topless, bare breasts, still wearing blue jeans")>\n` +
+      `PLACE: <lugar y momento concretos, máximo 15 palabras>\n` +
+      `POSE: <pose y expresión de ${character.name} vista desde el Usuario, máximo 20 palabras>`;
 
-    // Venice (uncensored, 24B) entiende mucho mejor el contexto que Lunaris 8B; Lunaris queda de respaldo
+    // GLM 5.3 describe el lugar y la ropa con mucha más precisión que Venice (que dejaba palabras en español
+    // y escribía "home cinema", dibujado como cine público). Venice y Lunaris quedan de respaldo.
     const openRouterResponse = await openRouterChat({
-      models: [CHAT_MODELS.FREE, CHAT_MODELS.FREE_BACKUP, 'sao10k/l3-lunaris-8b'],
+      models: [CHAT_MODELS.GLM, CHAT_MODELS.FREE, 'sao10k/l3-lunaris-8b'],
       messages: [{ role: 'user', content: openRouterPrompt }],
       title: 'Wonsfo Scene Describer',
       temperature: 0.4,
@@ -258,6 +261,13 @@ export async function POST(request: NextRequest) {
         // Limpiar cualquier envoltura que el modelo libre pueda haber agregado
         rawContent = rawContent.replace(/^```[a-zA-Z]*|```$/g, '').trim();
         rawContent = rawContent.replace(/^["']|["']$/g, '').trim();
+        // La ropa va primero en el prompt de imagen: los modelos SDXL ignoran lo que pasa de ~75 tokens
+        // y "still wearing jeans" al final se perdía (salía desnuda entera).
+        const field = (name: string) => rawContent.match(new RegExp(`${name}:\\s*(.+)`, 'i'))?.[1]?.trim().replace(/^["']|["']$/g, '');
+        const clothing = field('CLOTHING'), place = field('PLACE'), pose = field('POSE');
+        if (clothing && place && pose) {
+          rawContent = `${clothing}, ${place}, ${pose}`;
+        }
         if (rawContent) {
           sceneDescriptionEn = rawContent;
         }
@@ -344,7 +354,11 @@ export async function POST(request: NextRequest) {
     if (runwareResult) {
       imageBuffer = runwareResult.buffer;
       // Upscale ×2 solo si queda margen antes del corte de 60s de nginx
-      if (Date.now() - generationStarted < 30_000) {
+      // Escena explícita realista: Klein acerca la cara a la del avatar (el IP-Adapter solo la aproxima)
+      if (isNude && artStyle !== 'Anime' && character.avatar_url && Date.now() - generationStarted < 25_000) {
+        imageBuffer = (await refineFaceWithKlein(imageBuffer, character.avatar_url)) || imageBuffer;
+      }
+      if (Date.now() - generationStarted < 35_000) {
         imageBuffer = (await upscaleWithRunware(imageBuffer)) || imageBuffer;
       }
       usedPrompt = runwareTasks.find((t) => t.model === runwareResult.model)?.positivePrompt || enhancedPrompt;

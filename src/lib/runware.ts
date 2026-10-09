@@ -41,7 +41,25 @@ type RunwareTask = {
 // IP-Adapter SDXL Plus-Face: transfiere la cara del avatar a modelos SDXL/Illustrious/Pony
 const FACE_ADAPTER = 'runware:55@3';
 function faceAdapter(avatarUrl: string | null | undefined, weight: number) {
-  return avatarUrl ? { ipAdapters: [{ model: FACE_ADAPTER, guideImages: [avatarUrl], weight }] } : {};
+  return avatarUrl ? { ipAdapters: [{ model: FACE_ADAPTER, guideImages: [faceCropUrl(avatarUrl)], weight }] } : {};
+}
+
+// Recorte de la cara del avatar (Cloudinary detecta la cara). Con el avatar completo, el IP-Adapter copiaba
+// también el fondo y a la persona entera: aparecían el café del avatar y una "segunda" mujer en la escena.
+export function faceCropUrl(avatarUrl: string): string {
+  if (!avatarUrl.includes('res.cloudinary.com') || !avatarUrl.includes('/upload/')) return avatarUrl;
+  return avatarUrl.replace('/upload/', '/upload/c_crop,g_face,w_0.45,h_0.36/c_scale,w_512/');
+}
+
+// Nivel de desnudez según la descripción: antes se forzaba "nude" y salía desnuda aunque el rol fuera solo topless
+function nudityTags(description: string): { tags: string; negative: string } {
+  if (/completely naked|fully nude|\bnaked\b|\bnude\b|bottomless|pussy|vulva|genitals/i.test(description)) {
+    return { tags: 'nsfw, completely nude', negative: '' };
+  }
+  if (/topless|bare (breasts|chest)|breasts exposed|nipples|\bbra\b|\btop (is )?(off|removed)/i.test(description)) {
+    return { tags: 'nsfw, topless, bare breasts', negative: 'completely nude, bottomless, pussy, ' };
+  }
+  return { tags: 'nsfw, lingerie', negative: 'completely nude, pussy, ' };
 }
 
 // Orden importa: CLIP solo considera ~75 tokens, así que lo crítico (menores, desnudez) va primero.
@@ -79,13 +97,14 @@ function negativeFor(look: CharacterLook, extra: string, explicit: boolean): str
 // La escena se ve desde los ojos del usuario: sin esto los modelos inventan una segunda persona (ej. otra mujer para un beso)
 // "hetero"/"male pov" no se usan: en modelos entrenados con tags de booru disparan actos sexuales que la escena no describe
 function povTags(viewerGender?: string): { tags: string; negative: string; text: string } {
+  const crowd = 'crowd, audience, other people, people in background, ';
   if (viewerGender === 'Hombre') {
-    return { tags: 'pov', negative: '2girls, multiple girls, yuri, ', text: 'Photo taken from the first-person point of view of the man she is with; at most his hands are visible, never his face.' };
+    return { tags: 'pov, solo focus', negative: `2girls, multiple girls, yuri, ${crowd}`, text: 'Photo taken from the first-person point of view of the man she is with; at most his hands are visible, never his face.' };
   }
   if (viewerGender === 'Mujer') {
-    return { tags: 'pov, female pov', negative: '', text: 'Photo taken from the first-person point of view of the woman she is with; at most her hands are visible, never her face.' };
+    return { tags: 'pov, female pov, solo focus', negative: crowd, text: 'Photo taken from the first-person point of view of the woman she is with; at most her hands are visible, never her face.' };
   }
-  return { tags: 'pov', negative: '', text: 'Photo taken from the first-person point of view of the person she is with; at most their hands are visible.' };
+  return { tags: 'pov, solo focus', negative: crowd, text: 'Photo taken from the first-person point of view of the person she is with; at most their hands are visible.' };
 }
 
 // Escena del chat: elige modelo según estilo y desnudez, y arma el prompt en el formato que espera cada modelo.
@@ -102,20 +121,21 @@ export function buildSceneTasks(opts: {
   // La imagen no debe ir más allá de lo que pasa en el rol: si la escena no describe sexo, se excluye explícitamente
   const describesSex = /\bsex\b|intercourse|penetrat|penis|cock|fellatio|blowjob|oral|riding|straddl|cum\b|semen|thrust/i.test(sceneDescription);
   if (!describesSex) pov.negative += 'penis, sex, fellatio, paizuri, ';
+  const nudity = nudityTags(sceneDescription);
 
   if (artStyle === 'Anime') {
     return [{
       model: RUNWARE_MODELS.ANIME,
       // Lo más importante primero: CLIP de SDXL prioriza el inicio del prompt
-      positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${pov.tags}, ${identityTags(look)}, ${explicit ? 'nsfw, nude, uncensored' : 'sfw, fully clothed'}, ${sceneDescription}, ${bodyTags(look)}`,
-      negativePrompt: pov.negative + negativeFor(look, 'young, photorealistic, 3d', explicit),
+      positivePrompt: `masterpiece, best quality, amazing quality, anime, ${subjectTags(look, true)}, ${pov.tags}, ${identityTags(look)}, ${explicit ? nudity.tags : 'sfw, fully clothed'}, ${sceneDescription}, ${bodyTags(look)}`,
+      negativePrompt: pov.negative + (explicit ? nudity.negative : '') + negativeFor(look, 'young, photorealistic, 3d', explicit),
       width: 832, height: 1216, steps: 30, CFGScale: 5.5
     }];
   }
 
   if (explicit) {
-    const positivePrompt = `photorealistic, raw photo, ${subjectTags(look, false)}, ${pov.tags}, ${identityTags(look)}, nude, ${sceneDescription}, ${bodyTags(look)}, detailed skin texture`;
-    const negativePrompt = pov.negative + negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', true);
+    const positivePrompt = `photorealistic, raw photo, ${subjectTags(look, false)}, ${pov.tags}, ${identityTags(look)}, ${nudity.tags}, ${sceneDescription}, ${bodyTags(look)}, detailed skin texture`;
+    const negativePrompt = pov.negative + nudity.negative + negativeFor(look, 'anime, cartoon, illustration, drawing, 3d render', true);
     return [
       {
         model: RUNWARE_MODELS.REAL_NSFW,
@@ -238,4 +258,18 @@ export async function upscaleWithRunware(image: Buffer): Promise<Buffer | null> 
     console.error('Runware upscale falló, se usa la imagen original:', e?.message || e);
     return null;
   }
+}
+
+// Segundo paso para escenas explícitas realistas: Klein 9B reemplaza solo la cara por la del avatar.
+// El IP-Adapter da una cara "parecida"; Klein con dos referencias la acerca mucho más (~7s, ~$0.0025).
+export async function refineFaceWithKlein(image: Buffer, avatarUrl: string): Promise<Buffer | null> {
+  const result = await generateWithRunware([{
+    model: RUNWARE_MODELS.REAL_SFW,
+    positivePrompt:
+      'Replace only the face of the woman in image 1 with the exact face of the woman in image 2 (same facial features, eyes, nose, lips, face shape and hair color). ' +
+      'Keep everything else from image 1 exactly the same: pose, body, nudity, clothing, arms, lighting, background and framing.',
+    width: 832, height: 1216, steps: 4,
+    referenceImages: [`data:image/jpeg;base64,${image.toString('base64')}`, faceCropUrl(avatarUrl)]
+  }]);
+  return result?.buffer || null;
 }
